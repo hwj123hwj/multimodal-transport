@@ -1,0 +1,16 @@
+[project]
+name = "expe-backend"
+version = "0.1.0"
+description = "多式联运稳定匹配网站后端服务"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pandas>=2.2.3",
+    "numpy>=2.2.4",
+    "python-dotenv>=1.1.1",
+    "fastapi>=0.117.1",
+    "uvicorn[standard]>=0.37.0",
+    "pytest>=8.4.2",
+    "httpx>=0.28.1",
+    "requests>=2.32.5",
+]
