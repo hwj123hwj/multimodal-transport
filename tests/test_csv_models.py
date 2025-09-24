@@ -16,7 +16,8 @@ from app.models import (
     Network, NetworkTopology,
     Shipment, ShipmentStatus, ShipmentCollection,
     Route, RouteStatus, RouteCollection,
-    Match, MatchStatus, MatchPriority, MatchResult, MatchCollection
+    Match, MatchStatus, MatchPriority, MatchResult, MatchCollection,
+    StableMatching, MatchingCollection
 )
 
 
@@ -250,101 +251,92 @@ class TestCSVModels:
         # 验证多式联运路线数量
         assert len(multimodal_routes) <= stats['total_routes']
     
-    def test_match_creation(self):
-        """测试匹配创建"""
-        if 'shipments' not in self.test_data or 'routes' not in self.test_data:
-            pytest.skip("缺少必要的测试数据")
-        
-        # 创建货物和路线实例
-        shipments_data = self.test_data['shipments']
-        routes_data = self.test_data['routes']
-        
-        if not shipments_data or not routes_data:
-            pytest.skip("测试数据为空")
-        
-        shipment = Shipment.from_csv_row(shipments_data[0])
-        
-        if not routes_data:
-            pytest.skip("没有有效的路线数据")
-        
-        route = Route.from_csv_row(routes_data[0])
-        
-        # 创建匹配
-        match = Match.create_match(
-            match_id=1,
-            shipment_id=shipment.shipment_id,
-            route_id=route.route_id,
-            match_score=0.85,
-            stability_score=0.9
+    def test_stable_matching_creation(self):
+        """测试稳定匹配创建"""
+        # 创建稳定匹配实例
+        matching = StableMatching(
+            shipment_indices=[101, 102, 103],
+            route_assignments=[201, 202, "Self"],
+            total_capacity=1000,
+            total_container_number=150,
+            total_matched_container_number=120,
+            is_stable=True,
+            iteration_num=5,
+            restart_num=1,
+            cpu_time=2.5
         )
         
-        # 验证匹配属性
-        assert match.shipment_id == shipment.shipment_id
-        assert match.route_id == route.route_id
-        assert match.status == MatchStatus.MATCHED
-        assert match.priority == MatchPriority.MEDIUM
-        assert match.match_score > 0
-        
-        # 验证时间戳
-        assert match.created_at is not None
-        assert match.updated_at is not None
+        # 验证基本属性
+        assert matching.total_shipments == 3
+        assert matching.matched_shipments == 2
+        assert matching.unmatched_shipments == 1
+        assert matching.matching_rate == 2/3
+        assert matching.is_stable == True
+        assert matching.iteration_num == 5
+        assert matching.cpu_time == 2.5
     
-    def test_end_to_end_workflow(self):
-        """测试端到端工作流"""
-        if 'shipments' not in self.test_data or 'routes' not in self.test_data:
-            pytest.skip("缺少必要的测试数据")
+    def test_stable_matching_workflow(self):
+        """测试稳定匹配工作流"""
+        # 创建匹配集合
+        matching_collection = MatchingCollection()
         
-        # 创建集合
-        shipment_collection = ShipmentCollection()
-        route_collection = RouteCollection()
-        match_collection = MatchCollection()
+        # 创建第一个稳定匹配
+        matching1 = StableMatching(
+            shipment_indices=[101, 102, 103, 104, 105],
+            route_assignments=[201, 202, 203, "Self", 204],
+            total_capacity=2000,
+            total_container_number=250,
+            total_matched_container_number=200,
+            is_stable=True,
+            iteration_num=8,
+            restart_num=2,
+            cpu_time=3.2
+        )
         
-        # 加载数据
-        shipments_data = self.test_data['shipments']
-        routes_data = self.test_data['routes']
+        # 创建第二个稳定匹配
+        matching2 = StableMatching(
+            shipment_indices=[106, 107, 108, 109],
+            route_assignments=[205, "Self", 206, 207],
+            total_capacity=1500,
+            total_container_number=180,
+            total_matched_container_number=135,
+            is_stable=False,  # 不稳定匹配
+            iteration_num=12,
+            restart_num=3,
+            cpu_time=4.1
+        )
         
-        # 添加货物
-        for shipment_data in shipments_data[:3]:
-            shipment = Shipment.from_csv_row(shipment_data)
-            shipment_collection.add_shipment(shipment)
+        # 添加到集合
+        matching_collection.add_matching(matching1)
+        matching_collection.add_matching(matching2)
         
-        # 添加路线
-        for route_data in routes_data[:2]:
-            route = Route.from_csv_row(route_data)
-            if route:  # 确保route创建成功
-                route_collection.add_route(route)
+        # 验证集合管理
+        assert len(matching_collection.get_all_matchings()) == 2
+        latest = matching_collection.get_latest_matching()
+        assert latest is not None
+        assert latest.is_stable == False  # 最新的匹配是不稳定的
         
-        # 创建匹配
-        shipments = shipment_collection.get_all_shipments()
-        routes = route_collection.get_all_routes()
+        # 验证统计摘要
+        stats = matching_collection.get_statistics_summary()
+        assert stats['total_runs'] == 2
+        assert stats['average_cpu_time'] == (3.2 + 4.1) / 2
+        assert stats['average_matching_rate'] == (matching1.matching_rate + matching2.matching_rate) / 2
+        assert stats['stable_matchings'] == 1  # 只有第一个是稳定的
         
-        for shipment in shipments:
-            for route in routes:
-                # 检查容量匹配
-                if route.available_capacity >= shipment.demand:
-                    match = Match.create_match(
-                        match_id=len(match_collection.matches) + 1,
-                        shipment_id=shipment.shipment_id,
-                        route_id=route.route_id,
-                        match_score=0.85,
-                        stability_score=0.9
-                    )
-                    match_collection.add_match(match)
-                    
-                    # 更新容量
-                    route.add_load(shipment.demand)
+        # 验证路线使用统计
+        route_usage = matching1.get_route_usage()
+        assert 201 in route_usage
+        assert 202 in route_usage
+        assert "Self" in route_usage
         
-        # 验证匹配结果
-        matches = match_collection.get_all_matches()
-        assert len(matches) >= 0  # 可能没有匹配
+        # 验证货物分配查询
+        assignment = matching1.get_shipment_assignment(101)
+        assert assignment == 201
         
-        # 验证统计信息
-        stats = match_collection.get_matching_statistics()
-        assert stats['total_matches'] >= 0
-        assert stats['active_matches'] >= 0
-        assert stats['average_match_score'] >= 0
+        assignment = matching1.get_shipment_assignment(104)
+        assert assignment == "Self"  # 未匹配
         
-        print(f"端到端测试完成：创建了 {len(matches)} 个匹配")
+        print(f"稳定匹配工作流测试完成：创建了 {len(matching_collection.get_all_matchings())} 个匹配")
     
     def test_data_integrity(self):
         """测试数据完整性"""

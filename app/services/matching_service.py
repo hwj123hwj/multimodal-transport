@@ -56,9 +56,17 @@ class MatchingService:
         if not self.matchings:
             return None
         
+        # 在StableMatching中查找货物分配
         for matching in self.matchings:
-            if matching.shipment.shipment_id == shipment_id:
-                return matching.to_dict()
+            if shipment_id in matching.shipment_indices:
+                index = matching.shipment_indices.index(shipment_id)
+                assigned_route = matching.route_assignments[index]
+                return {
+                    'shipment_id': shipment_id,
+                    'assigned_route': assigned_route,
+                    'matching_rate': matching.matching_rate,
+                    'is_stable': matching.is_stable
+                }
         
         return None
     
@@ -77,11 +85,19 @@ class MatchingService:
         if not self.matchings:
             return []
         
-        return [
-            matching.to_dict() 
-            for matching in self.matchings 
-            if matching.route.route_id == route_id
-        ]
+        result = []
+        for matching in self.matchings:
+            # 查找使用该路线的所有货物
+            shipments_on_route = matching.get_matches_by_route(route_id)
+            if shipments_on_route:
+                result.append({
+                    'route_id': route_id,
+                    'shipments': shipments_on_route,
+                    'matching_rate': matching.matching_rate,
+                    'is_stable': matching.is_stable
+                })
+        
+        return result
     
     def get_matching_summary(self) -> Dict[str, Any]:
         """获取匹配摘要信息
@@ -95,21 +111,25 @@ class MatchingService:
         if not self.matchings:
             return {
                 'total_matchings': 0,
-                'avg_matching_score': 0,
-                'total_demand': 0,
-                'total_capacity': 0
+                'avg_matching_rate': 0,
+                'total_shipments': 0,
+                'matched_shipments': 0,
+                'unmatched_shipments': 0,
+                'avg_cpu_time': 0
             }
         
-        total_demand = sum(m.shipment.demand for m in self.matchings)
-        total_capacity = sum(m.route.capacity for m in self.matchings)
-        avg_score = sum(m.matching_score for m in self.matchings) / len(self.matchings)
+        total_shipments = sum(m.total_shipments for m in self.matchings)
+        matched_shipments = sum(m.matched_shipments for m in self.matchings)
+        avg_matching_rate = sum(m.matching_rate for m in self.matchings) / len(self.matchings)
+        avg_cpu_time = sum(m.cpu_time for m in self.matchings) / len(self.matchings)
         
         return {
             'total_matchings': len(self.matchings),
-            'avg_matching_score': round(avg_score, 2),
-            'total_demand': total_demand,
-            'total_capacity': total_capacity,
-            'utilization_rate': round(total_demand / total_capacity * 100, 2) if total_capacity > 0 else 0
+            'avg_matching_rate': round(avg_matching_rate, 4),
+            'total_shipments': total_shipments,
+            'matched_shipments': matched_shipments,
+            'unmatched_shipments': total_shipments - matched_shipments,
+            'avg_cpu_time': round(avg_cpu_time, 2)
         }
     
     def validate_matching(self, matching: StableMatching) -> Dict[str, Any]:
@@ -121,28 +141,28 @@ class MatchingService:
         Returns:
             Dict[str, Any]: 验证结果
         """
-        shipment = matching.shipment
-        route = matching.route
+        # 检查匹配是否稳定
+        is_stable = matching.is_stable
         
-        # 检查容量约束
-        capacity_ok = shipment.demand <= route.capacity
+        # 检查匹配率
+        matching_rate = matching.matching_rate
         
-        # 检查路线是否包含起点和终点
-        route_nodes = set(route.nodes)
-        route_ok = (shipment.origin_node in route_nodes and 
-                   shipment.destination_node in route_nodes)
+        # 检查迭代次数是否合理
+        reasonable_iterations = matching.iteration_num < 1000
         
-        # 检查时间约束（简化版本）
-        time_ok = True  # 这里可以添加更复杂的时间约束检查
+        # 检查CPU时间是否合理
+        reasonable_time = matching.cpu_time < 3600  # 1小时
         
         return {
-            'is_valid': capacity_ok and route_ok and time_ok,
-            'capacity_ok': capacity_ok,
-            'route_ok': route_ok,
-            'time_ok': time_ok,
+            'is_valid': is_stable and matching_rate > 0,
+            'is_stable': is_stable,
+            'matching_rate': matching_rate,
+            'reasonable_iterations': reasonable_iterations,
+            'reasonable_time': reasonable_time,
             'issues': [
-                '货物需求超过路线容量' if not capacity_ok else None,
-                '路线不包含货物起点或终点' if not route_ok else None,
-                '时间约束不满足' if not time_ok else None
+                '匹配不稳定' if not is_stable else None,
+                '匹配率为0' if matching_rate == 0 else None,
+                '迭代次数过多' if not reasonable_iterations else None,
+                '执行时间过长' if not reasonable_time else None
             ]
         }

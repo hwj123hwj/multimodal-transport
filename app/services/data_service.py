@@ -43,7 +43,7 @@ class DataService:
                 
                 matchings = self._cached_data['matchings']
                 if matchings:
-                    matching_rate = matchings[0].matching_rate
+                    matching_rate = getattr(matchings[0], 'matching_rate', 0.0)
             except Exception:
                 # 如果匹配数据不可用，使用默认值
                 matching_rate = 0.0

@@ -34,7 +34,12 @@ logger.info("✅ FastAPI应用实例创建完成")
 # CORS配置
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:*", "http://127.0.0.1:*"],  # 更具体的CORS配置
+    allow_origins=[
+        "http://localhost:8080", 
+        "http://127.0.0.1:8080",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000"
+    ],  # 明确指定前端端口
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

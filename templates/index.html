@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多式联运稳定匹配系统</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚛 多式联运稳定匹配系统</h1>
+            <p>Multi-modal Transportation Stable Matching System</p>
+        </header>
+
+        <nav class="nav-tabs">
+            <button class="tab-btn active" data-tab="network">网络拓扑</button>
+            <button class="tab-btn" data-tab="matching">匹配结果</button>
+            <button class="tab-btn" data-tab="analysis">统计分析</button>
+            <button class="tab-btn" data-tab="query">数据查询</button>
+        </nav>
+
+        <main>
+            <!-- 网络拓扑面板 -->
+            <div class="tab-panel active" id="network-panel">
+                <div class="panel-header">
+                    <h2>📊 网络拓扑结构</h2>
+                    <button id="refresh-network" class="btn btn-primary">刷新数据</button>
+                </div>
+                <div class="network-container">
+                    <div class="network-stats">
+                        <div class="stat-card">
+                            <h3>网络节点</h3>
+                            <div class="stat-value" id="total-nodes">-</div>
+                        </div>
+                        <div class="stat-card">
+                            <h3>节点分布</h3>
+                            <div class="stat-value" id="node-sites">-</div>
+                        </div>
+                    </div>
+                    <div class="network-visualization">
+                        <div id="network-graph" class="graph-container">
+                            <div class="loading">正在加载网络拓扑数据...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 匹配结果面板 -->
+            <div class="tab-panel" id="matching-panel">
+                <div class="panel-header">
+                    <h2>🎯 货物分配结果</h2>
+                    <button id="refresh-matching" class="btn btn-primary">刷新数据</button>
+                </div>
+                <div class="matching-container">
+                    <div class="matching-summary">
+                        <div class="stat-card">
+                            <h3>总匹配数</h3>
+                            <div class="stat-value" id="total-matchings">-</div>
+                        </div>
+                        <div class="stat-card">
+                            <h3>平均匹配率</h3>
+                            <div class="stat-value" id="avg-matching-rate">-</div>
+                        </div>
+                        <div class="stat-card">
+                            <h3>总货物数</h3>
+                            <div class="stat-value" id="total-shipments">-</div>
+                        </div>
+                        <div class="stat-card">
+                            <h3>已匹配货物</h3>
+                            <div class="stat-value" id="matched-shipments">-</div>
+                        </div>
+                    </div>
+                    <div class="matching-controls">
+                        <div class="search-box">
+                            <input type="number" id="shipment-search" placeholder="输入货物ID查询">
+                            <button id="search-shipment-btn" class="btn btn-secondary">查询</button>
+                        </div>
+                        <div class="search-box">
+                            <input type="number" id="route-search" placeholder="输入路线ID查询">
+                            <button id="search-route-btn" class="btn btn-secondary">查询</button>
+                        </div>
+                    </div>
+                    <div class="matching-results">
+                        <div id="matching-details" class="result-container">
+                            <div class="placeholder">请输入货物ID或路线ID进行查询</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 统计分析面板 -->
+            <div class="tab-panel" id="analysis-panel">
+                <div class="panel-header">
+                    <h2>📈 路线利用率分析</h2>
+                    <button id="refresh-analysis" class="btn btn-primary">刷新数据</button>
+                </div>
+                <div class="analysis-container">
+                    <div class="charts-grid">
+                        <div class="chart-card">
+                            <h3>匹配率分布</h3>
+                            <div id="matching-rate-chart" class="chart-placeholder">
+                                <div class="loading">正在加载图表数据...</div>
+                            </div>
+                        </div>
+                        <div class="chart-card">
+                            <h3>货物状态分布</h3>
+                            <div id="shipment-status-chart" class="chart-placeholder">
+                                <div class="loading">正在加载图表数据...</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="analysis-details">
+                        <div class="detail-card">
+                            <h3>详细统计</h3>
+                            <div id="analysis-details-content">
+                                <div class="placeholder">点击刷新获取详细分析数据</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 数据查询面板 -->
+            <div class="tab-panel" id="query-panel">
+                <div class="panel-header">
+                    <h2>🔍 交互式数据查询</h2>
+                </div>
+                <div class="query-container">
+                    <div class="query-form">
+                        <div class="form-group">
+                            <label for="query-destination">目的地节点:</label>
+                            <input type="number" id="query-destination" placeholder="输入目的地节点ID">
+                        </div>
+                        <div class="form-group">
+                            <label for="query-origin">起点节点:</label>
+                            <input type="number" id="query-origin" placeholder="输入起点节点ID">
+                        </div>
+                        <div class="form-group">
+                            <label for="query-status">货物状态:</label>
+                            <select id="query-status">
+                                <option value="">全部状态</option>
+                                <option value="pending">待处理</option>
+                                <option value="matched">已匹配</option>
+                                <option value="in_transit">运输中</option>
+                                <option value="delivered">已交付</option>
+                            </select>
+                        </div>
+                        <div class="form-actions">
+                            <button id="execute-query" class="btn btn-primary">执行查询</button>
+                            <button id="clear-query" class="btn btn-secondary">清空条件</button>
+                        </div>
+                    </div>
+                    <div class="query-results">
+                        <div id="query-results-content" class="result-container">
+                            <div class="placeholder">设置查询条件并点击执行查询</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>&copy; 2024 多式联运稳定匹配系统 | 基于原生HTML+CSS+JS实现</p>
+        </footer>
+    </div>
+
+    <script src="/static/js/script.js"></script>
+</body>
+</html>

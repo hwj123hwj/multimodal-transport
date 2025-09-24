@@ -13,7 +13,8 @@ from app.models import (
     Network, NetworkTopology,
     Shipment, ShipmentStatus, ShipmentCollection,
     Route, RouteStatus, RouteCollection,
-    Match, MatchStatus, MatchPriority, MatchResult, MatchCollection
+    Match, MatchStatus, MatchPriority, MatchResult, MatchCollection,
+    StableMatching, MatchingCollection
 )
 
 
@@ -259,176 +260,218 @@ class TestRouteModel:
         assert abs(efficiency_score - expected_score) < 1.0
 
 
-class TestMatchModel:
-    """测试匹配模型"""
+class TestStableMatchingModel:
+    """测试稳定匹配模型"""
     
-    def test_match_creation(self):
-        """测试匹配创建"""
-        match = Match.create_match(
-            match_id=1,
-            shipment_id=101,
-            route_id=201,
-            match_score=0.85,
-            stability_score=0.75,
-            priority=MatchPriority.HIGH
+    def test_stable_matching_creation(self):
+        """测试稳定匹配创建"""
+        matching = StableMatching(
+            shipment_indices=[101, 102, 103],
+            route_assignments=[201, 202, "Self"],
+            total_capacity=1000,
+            total_container_number=150,
+            total_matched_container_number=120,
+            is_stable=True,
+            iteration_num=5,
+            restart_num=1,
+            cpu_time=2.5
         )
         
-        assert match.match_id == 1
-        assert match.shipment_id == 101
-        assert match.route_id == 201
-        assert match.match_score == 0.85
-        assert match.stability_score == 0.75
-        assert match.priority == MatchPriority.HIGH
-        assert match.status == MatchStatus.MATCHED
+        assert matching.total_shipments == 3
+        assert matching.matched_shipments == 2
+        assert matching.unmatched_shipments == 1
+        assert matching.matching_rate == 2/3
+        assert matching.container_matching_rate == 120/150
+        assert matching.is_stable == True
     
-    def test_match_validation(self):
-        """测试匹配验证"""
-        # 测试评分超出范围
+    def test_stable_matching_validation(self):
+        """测试稳定匹配验证"""
+        # 测试数据不一致
         with pytest.raises(ValueError):
-            Match.create_match(
-                match_id=1,
-                shipment_id=101,
-                route_id=201,
-                match_score=1.5,  # 超出范围
-                stability_score=0.75
+            StableMatching(
+                shipment_indices=[101, 102],
+                route_assignments=[201, 202, 203],  # 数量不一致
+                total_capacity=1000,
+                total_container_number=150,
+                total_matched_container_number=120,
+                is_stable=True,
+                iteration_num=5,
+                restart_num=1,
+                cpu_time=2.5
+            )
+        
+        # 测试匹配数超过总数
+        with pytest.raises(ValueError):
+            StableMatching(
+                shipment_indices=[101, 102, 103],
+                route_assignments=[201, 202, "Self"],
+                total_capacity=1000,
+                total_container_number=150,
+                total_matched_container_number=160,  # 超过总数
+                is_stable=True,
+                iteration_num=5,
+                restart_num=1,
+                cpu_time=2.5
+            )
+        
+        # 测试负CPU时间
+        with pytest.raises(ValueError):
+            StableMatching(
+                shipment_indices=[101, 102, 103],
+                route_assignments=[201, 202, "Self"],
+                total_capacity=1000,
+                total_container_number=150,
+                total_matched_container_number=120,
+                is_stable=True,
+                iteration_num=5,
+                restart_num=1,
+                cpu_time=-1.0  # 负数
             )
     
-    def test_match_status_update(self):
-        """测试匹配状态更新"""
-        match = Match.create_match(
-            match_id=1,
-            shipment_id=101,
-            route_id=201,
-            match_score=0.85,
-            stability_score=0.75
+    def test_stable_matching_route_usage(self):
+        """测试路线使用统计"""
+        matching = StableMatching(
+            shipment_indices=[101, 102, 103, 104],
+            route_assignments=[201, 202, 201, "Self"],
+            total_capacity=1000,
+            total_container_number=200,
+            total_matched_container_number=180,
+            is_stable=True,
+            iteration_num=3,
+            restart_num=0,
+            cpu_time=1.8
         )
         
-        # 更新状态
-        result = match.update_status(MatchStatus.IN_TRANSIT, "开始运输")
-        assert "matched -> in_transit" in result.lower()
-        assert match.status == MatchStatus.IN_TRANSIT
-        assert "开始运输" in match.notes
+        usage = matching.get_route_usage()
+        assert usage[201] == 2  # 路线201被使用2次
+        assert usage[202] == 1  # 路线202被使用1次
+        assert usage["Self"] == 1  # 未匹配1次
     
-    def test_match_quality_score(self):
-        """测试匹配质量评分"""
-        match = Match.create_match(
-            match_id=1,
-            shipment_id=101,
-            route_id=201,
-            match_score=0.9,
-            stability_score=0.8,
-            priority=MatchPriority.HIGH
+    def test_stable_matching_queries(self):
+        """测试稳定匹配查询方法"""
+        matching = StableMatching(
+            shipment_indices=[101, 102, 103],
+            route_assignments=[201, 202, "Self"],
+            total_capacity=1000,
+            total_container_number=150,
+            total_matched_container_number=120,
+            is_stable=True,
+            iteration_num=5,
+            restart_num=1,
+            cpu_time=2.5
         )
         
-        # 模拟完成时间（12小时）
-        match.actual_completion_time = match.created_at + timedelta(hours=12)
+        # 测试按路线查询
+        route_201_matches = matching.get_matches_by_route(201)
+        assert 101 in route_201_matches
         
-        quality_score = match.get_match_quality_score()
-        assert 0 <= quality_score <= 1
+        route_202_matches = matching.get_matches_by_route(202)
+        assert 102 in route_202_matches
         
-        # 验证质量评分计算
-        base_score = (0.9 + 0.8) / 2
-        priority_multiplier = 3.0 / 4.0  # HIGH priority
-        time_factor = 1.0  # 12小时 <= 24小时
-        expected_score = base_score * priority_multiplier * time_factor
-        assert abs(quality_score - expected_score) < 0.01
+        # 测试货物分配查询
+        assert matching.get_shipment_assignment(101) == 201
+        assert matching.get_shipment_assignment(102) == 202
+        assert matching.get_shipment_assignment(103) == "Self"
+        assert matching.get_shipment_assignment(999) is None  # 不存在的货物
     
-    def test_match_collection(self):
-        """测试匹配集合"""
-        collection = MatchCollection()
-        
-        # 创建匹配
-        match1 = collection.create_match(
-            shipment_id=101,
-            route_id=201,
-            match_score=0.85,
-            stability_score=0.75,
-            priority=MatchPriority.HIGH
+    def test_stable_matching_to_dict(self):
+        """测试稳定匹配转字典"""
+        matching = StableMatching(
+            shipment_indices=[101, 102, 103],
+            route_assignments=[201, 202, "Self"],
+            total_capacity=1000,
+            total_container_number=150,
+            total_matched_container_number=120,
+            is_stable=True,
+            iteration_num=5,
+            restart_num=1,
+            cpu_time=2.5
         )
         
-        match2 = collection.create_match(
-            shipment_id=102,
-            route_id=202,
-            match_score=0.75,
-            stability_score=0.65,
-            priority=MatchPriority.MEDIUM
-        )
+        result = matching.to_dict()
         
-        assert len(collection.get_all_matches()) == 2
-        assert len(collection.get_active_matches()) == 2
-        
-        # 更新状态
-        collection.update_match_status(match1.match_id, MatchStatus.COMPLETED)
-        
-        assert len(collection.get_active_matches()) == 1
-        assert len(collection.get_matches_by_status(MatchStatus.COMPLETED)) == 1
-        
-        stats = collection.get_matching_statistics()
-        assert stats['total_matches'] == 2
-        assert stats['success_rate'] == 0.5  # 1个完成，总共2个
+        assert result['total_shipments'] == 3
+        assert result['matched_shipments'] == 2
+        assert result['unmatched_shipments'] == 1
+        assert result['matching_rate'] == 2/3
+        assert result['container_matching_rate'] == 120/150
+        assert result['is_stable'] == True
+        assert result['cpu_time'] == 2.5
+        assert 'route_usage' in result
+        assert 'shipments' in result
+        assert len(result['shipments']) == 3
 
 
 class TestIntegration:
     """集成测试"""
     
-    def test_end_to_end_workflow(self):
-        """测试端到端工作流"""
-        # 创建网络
-        network = Network(
-            nodes_number=3,
-            sites=[1, 2, 3],
-            location_indices=[0, 1, 2]
+    def test_stable_matching_workflow(self):
+        """测试稳定匹配工作流"""
+        # 创建匹配集合
+        matching_collection = MatchingCollection()
+        
+        # 创建第一个稳定匹配结果
+        matching1 = StableMatching(
+            shipment_indices=[101, 102, 103, 104],
+            route_assignments=[201, 202, 201, "Self"],
+            total_capacity=1000,
+            total_container_number=200,
+            total_matched_container_number=180,
+            is_stable=True,
+            iteration_num=5,
+            restart_num=1,
+            cpu_time=2.5
         )
+        matching_collection.add_matching(matching1)
         
-        # 创建货物
-        shipment_collection = ShipmentCollection()
-        shipment = Shipment(
-            shipment_id=101,
-            origin_node=0,
-            destination_node=2,
-            demand=25,  # 25个标准箱
-            time_value=1000.0,
-            classification=1  # 使用默认值
+        # 创建第二个稳定匹配结果（模拟不同参数）
+        matching2 = StableMatching(
+            shipment_indices=[105, 106, 107],
+            route_assignments=[203, "Self", 204],
+            total_capacity=800,
+            total_container_number=150,
+            total_matched_container_number=120,
+            is_stable=False,  # 不稳定
+            iteration_num=8,
+            restart_num=2,
+            cpu_time=3.2
         )
-        shipment_collection.add_shipment(shipment)
+        matching_collection.add_matching(matching2)
         
-        # 创建路线
-        route_collection = RouteCollection()
-        route = Route(
-            route_id=1,
-            nodes=[0, 1, 2],
-            capacity=50,  # 50个标准箱
-            total_travel_time=12.0,  # 12小时
-            total_cost=800.0,  # 800元总成本
-            costs=[300.0, 500.0],  # 各段成本
-            travel_times=[5.0, 7.0]  # 各段时间
-        )
-        route_collection.add_route(route)
+        # 验证匹配集合
+        assert len(matching_collection.get_all_matchings()) == 2
+        latest = matching_collection.get_latest_matching()
+        assert latest == matching2
         
-        # 创建匹配
-        match_collection = MatchCollection()
-        match = match_collection.create_match(
-            shipment_id=shipment.shipment_id,
-            route_id=route.route_id,
-            match_score=0.9,
-            stability_score=0.8,
-            priority=MatchPriority.HIGH,
-            estimated_completion_time=datetime.now() + timedelta(hours=48)
-        )
+        # 验证统计摘要
+        stats = matching_collection.get_statistics_summary()
+        assert stats['total_runs'] == 2
+        assert stats['latest_matching'] is not None
+        assert stats['stable_matchings'] == 1  # 只有第一个是稳定的
+        assert 2.5 <= stats['average_cpu_time'] <= 3.2
+        assert 0.5 <= stats['average_matching_rate'] <= 1.0
         
-        # 验证匹配
-        assert match.shipment_id == shipment.shipment_id
-        assert match.route_id == route.route_id
-        assert match.status == MatchStatus.MATCHED
+        # 验证第一个匹配的详细信息
+        latest_dict = matching1.to_dict()
+        assert latest_dict['total_shipments'] == 4
+        assert latest_dict['matched_shipments'] == 3
+        assert latest_dict['unmatched_shipments'] == 1
+        assert latest_dict['matching_rate'] == 0.75
+        assert latest_dict['is_stable'] == True
         
-        # 模拟运输过程
-        match.update_status(MatchStatus.IN_TRANSIT)
-        shipment.update_status(ShipmentStatus.MATCHED)  # 先设置为匹配状态
-        shipment.update_status(ShipmentStatus.IN_TRANSIT)  # 然后设置为运输中
+        # 验证路线使用统计
+        route_usage = matching1.get_route_usage()
+        assert route_usage[201] == 2
+        assert route_usage[202] == 1
+        assert route_usage["Self"] == 1
         
-        # 模拟完成
-        match.update_status(MatchStatus.COMPLETED)
-        shipment.update_status(ShipmentStatus.DELIVERED)
+        # 验证查询方法
+        route_201_matches = matching1.get_matches_by_route(201)
+        assert len(route_201_matches) == 2
+        assert 101 in route_201_matches
+        assert 103 in route_201_matches
         
-        assert match.is_completed
-        assert shipment.status == ShipmentStatus.DELIVERED
+        # 验证货物分配查询
+        assert matching1.get_shipment_assignment(101) == 201
+        assert matching1.get_shipment_assignment(102) == 202
+        assert matching1.get_shipment_assignment(104) == "Self"  # 未匹配
