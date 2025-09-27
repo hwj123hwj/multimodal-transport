@@ -18,7 +18,7 @@ data_service = DataService(data_loader)
 
 @router.get("/search/shipments")
 async def search_shipments_by_destination(
-    destination: str = Query(..., description="目的地节点", example="9")
+    destination: str = Query(..., description="目的地节点", example="6")
 ):
     """按目的地搜索货物
     
@@ -155,48 +155,3 @@ async def filter_routes_by_capacity(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"按容量筛选路线失败: {str(e)}")
-
-
-@router.get("/stats/network")
-async def get_network_statistics():
-    """获取网络统计信息"""
-    try:
-        # 获取所有数据
-        network_data = data_service.get_all_network_nodes()
-        shipments_data = data_service.get_all_shipments()
-        routes_data = data_service.get_all_routes()
-        
-        # 计算统计信息
-        stats = {
-            "network": {
-                "total_nodes": network_data["nodes_number"],
-                "sites": network_data["sites"]
-            },
-            "shipments": {
-                "total": shipments_data["total_count"],
-                "status_breakdown": shipments_data["status_breakdown"]
-            },
-            "routes": {
-                "total": routes_data["total_count"],
-                "avg_utilization": routes_data["capacity_stats"]["avg_utilization"],
-                "total_capacity": routes_data["capacity_stats"]["total_capacity"]
-            },
-            "connectivity": {
-                "node_coverage": len(set([
-                    s["origin_node"] for s in shipments_data["shipments"]
-                ] + [
-                    s["destination_node"] for s in shipments_data["shipments"]
-                ])),
-                "route_coverage": len(set([
-                    node for route in routes_data["routes"] 
-                    for node in route["nodes"]
-                ]))
-            }
-        }
-        
-        return {
-            "status": "success",
-            "data": stats
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"获取网络统计失败: {str(e)}")

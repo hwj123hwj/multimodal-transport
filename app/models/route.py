@@ -3,17 +3,7 @@
 用于表示运输路线和容量信息
 """
 from dataclasses import dataclass
-from datetime import datetime
-from enum import Enum
-from typing import List, Optional, Dict, Any
-
-
-class RouteStatus(Enum):
-    """路线状态枚举"""
-    AVAILABLE = "available"  # 可用
-    OCCUPIED = "occupied"  # 占用中
-    MAINTENANCE = "maintenance"  # 维护中
-    CLOSED = "closed"  # 关闭
+from typing import List, Dict, Any, Optional
 
 
 @dataclass
@@ -25,20 +15,12 @@ class Route:
     travel_times: List[float]  # 旅行时间列表（每段路线的旅行时间）
     capacity: int = 0  # 容量
     current_load: int = 0  # 当前负载
-    status: RouteStatus = RouteStatus.AVAILABLE
     efficiency_score: float = 0.0  # 效率评分
     total_travel_time: float = 0.0  # 总旅行时间（小时）
     total_cost: float = 0.0  # 总成本
-    created_at: datetime = None
-    updated_at: datetime = None
 
     def __post_init__(self):
         """数据验证和后处理"""
-        if self.created_at is None:
-            self.created_at = datetime.now()
-        if self.updated_at is None:
-            self.updated_at = datetime.now()
-
         # 验证基本属性
         if self.capacity < 0:
             raise ValueError(f"路线容量不能为负数，当前值: {self.capacity}")
@@ -82,11 +64,6 @@ class Route:
         return self.current_load >= self.capacity
 
     @property
-    def is_available(self) -> bool:
-        """是否可用"""
-        return self.status == RouteStatus.AVAILABLE and not self.is_full
-
-    @property
     def origin_node(self) -> int:
         """起始节点"""
         return self.nodes[0] if self.nodes else None
@@ -98,41 +75,7 @@ class Route:
 
     def can_accommodate(self, demand: int) -> bool:
         """检查是否可以容纳指定需求"""
-        return self.available_capacity >= demand and self.is_available
-
-    def add_load(self, demand: int) -> bool:
-        """增加负载"""
-        if not self.can_accommodate(demand):
-            return False
-
-        self.current_load += demand
-        self.updated_at = datetime.now()
-        return True
-
-    def remove_load(self, demand: int) -> bool:
-        """减少负载"""
-        if self.current_load < demand:
-            return False
-
-        self.current_load -= demand
-        self.updated_at = datetime.now()
-        return True
-
-    def update_status(self, new_status: RouteStatus) -> bool:
-        """更新路线状态"""
-        # 定义允许的状态转换
-        valid_transitions = {
-            RouteStatus.AVAILABLE: [RouteStatus.OCCUPIED, RouteStatus.MAINTENANCE, RouteStatus.CLOSED],
-            RouteStatus.OCCUPIED: [RouteStatus.AVAILABLE, RouteStatus.MAINTENANCE, RouteStatus.CLOSED],
-            RouteStatus.MAINTENANCE: [RouteStatus.AVAILABLE, RouteStatus.CLOSED],
-            RouteStatus.CLOSED: [RouteStatus.AVAILABLE]
-        }
-
-        if new_status in valid_transitions.get(self.status, []):
-            self.status = new_status
-            self.updated_at = datetime.now()
-            return True
-        return False
+        return self.available_capacity >= demand
 
     def calculate_efficiency_score(self) -> float:
         """计算效率评分（基于利用率和成本，移除距离因素）"""
@@ -140,7 +83,7 @@ class Route:
         utilization_score = self.utilization_rate / 100 * 50
 
         # 成本效率（假设10000元为基准总成本）
-        cost_efficiency = max(0, (10000 - self.total_cost) / 10000 * 50)
+        cost_efficiency = max(0.0, (10000 - self.total_cost) / 10000 * 50)
 
         self.efficiency_score = utilization_score + cost_efficiency
         return self.efficiency_score
@@ -148,16 +91,6 @@ class Route:
     def get_mode_name(self) -> str:
         """获取运输方式中文名称（多式联运）"""
         return "多式联运"
-
-    def get_status_name(self) -> str:
-        """获取状态中文名称"""
-        status_names = {
-            RouteStatus.AVAILABLE: "可用",
-            RouteStatus.OCCUPIED: "占用中",
-            RouteStatus.MAINTENANCE: "维护中",
-            RouteStatus.CLOSED: "关闭"
-        }
-        return status_names.get(self.status, "未知状态")
 
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典格式"""
@@ -173,20 +106,15 @@ class Route:
             'available_capacity': self.available_capacity,
             'utilization_rate': self.utilization_rate,
             'is_full': self.is_full,
-            'is_available': self.is_available,
-            'status': self.status.value,
-            'status_name': self.get_status_name(),
             'efficiency_score': self.efficiency_score,
             'travel_time': self.total_travel_time,
             'total_cost': self.total_cost,
             'costs': self.costs,
             'travel_times': self.travel_times,
-            'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat()
         }
 
     @classmethod
-    def from_csv_row(cls, row_data: List[str]) -> 'Route':
+    def from_csv_row(cls, row_data: List[str]) -> Optional['Route']:
         """从CSV行数据创建路线实例（基于实际CSV结构）"""
         # 跳过标题行和字段名行
         if len(row_data) < 30 or not row_data[0].strip() or row_data[0] == 'route number':
@@ -254,92 +182,3 @@ class Route:
         except (ValueError, IndexError, TypeError) as e:
             print(f"解析CSV行失败: {e}, 数据: {row_data[:5]}...")
             return None
-
-
-class RouteCollection:
-    """路线集合管理类"""
-
-    def __init__(self):
-        self.routes: Dict[int, Route] = {}
-
-    def add_route(self, route: Route):
-        """添加路线"""
-        if route.route_id in self.routes:
-            raise ValueError(f"路线ID已存在: {route.route_id}")
-        self.routes[route.route_id] = route
-
-    def get_route(self, route_id: int) -> Optional[Route]:
-        """获取指定路线"""
-        return self.routes.get(route_id)
-
-    def get_all_routes(self) -> List[Route]:
-        """获取所有路线"""
-        return list(self.routes.values())
-
-    def get_available_routes(self) -> List[Route]:
-        """获取可用路线"""
-        return [r for r in self.routes.values() if r.is_available]
-
-    def get_routes_by_mode(self, mode: str = "multimodal") -> List[Route]:
-        """按运输方式获取路线（默认多式联运）"""
-        return [r for r in self.routes.values()]  # 所有路线都是多式联运
-
-    def get_routes_by_status(self, status: RouteStatus) -> List[Route]:
-        """按状态获取路线"""
-        return [r for r in self.routes.values() if r.status == status]
-
-    def get_routes_by_node(self, node_id: int) -> List[Route]:
-        """获取经过指定节点的路线"""
-        return [r for r in self.routes.values() if node_id in r.nodes]
-
-    def get_routes_by_origin(self, origin_node: int) -> List[Route]:
-        """按起始节点获取路线"""
-        return [r for r in self.routes.values() if r.origin_node == origin_node]
-
-    def get_routes_by_destination(self, destination_node: int) -> List[Route]:
-        """按目标节点获取路线"""
-        return [r for r in self.routes.values() if r.destination_node == destination_node]
-
-    def find_routes_for_shipment(self, origin_node: int, destination_node: int, demand: int) -> List[Route]:
-        """为货物匹配合适的路线"""
-        suitable_routes = []
-
-        for route in self.get_available_routes():
-            # 检查路线是否连接起始和目标节点
-            if route.origin_node == origin_node and route.destination_node == destination_node:
-                # 检查容量是否足够
-                if route.can_accommodate(demand):
-                    suitable_routes.append(route)
-
-        # 按效率评分排序（降序）
-        suitable_routes.sort(key=lambda r: r.calculate_efficiency_score(), reverse=True)
-        return suitable_routes
-
-    def get_statistics(self) -> Dict[str, Any]:
-        """获取统计信息"""
-        if not self.routes:
-            return {'total_routes': 0}
-
-        routes = list(self.routes.values())
-
-        return {
-            'total_routes': len(routes),
-            'total_capacity': sum(r.capacity for r in routes),
-            'total_current_load': sum(r.current_load for r in routes),
-            'total_available_capacity': sum(r.available_capacity for r in routes),
-            'average_utilization_rate': sum(r.utilization_rate for r in routes) / len(routes),
-            'available_routes': len(self.get_available_routes()),
-            'full_routes': len([r for r in routes if r.is_full]),
-            'mode_distribution': {
-                'multimodal': len(self.get_routes_by_mode('multimodal'))
-            },
-            'status_distribution': {
-                status.value: len(self.get_routes_by_status(status))
-                for status in RouteStatus
-            },
-            'total_travel_time': sum(r.total_travel_time for r in routes),
-            'average_travel_time': sum(r.total_travel_time for r in routes) / len(routes),
-            'average_total_cost': sum(r.total_cost for r in routes) / len(routes),
-            'route_with_highest_efficiency': max(routes, key=lambda r: r.efficiency_score).route_id if routes else None,
-            'route_with_lowest_efficiency': min(routes, key=lambda r: r.efficiency_score).route_id if routes else None
-        }

@@ -4,6 +4,7 @@
 """
 import logging
 from typing import Dict, Any, List, Optional
+
 from ..services.data_loader import DataLoader
 
 logger = logging.getLogger(__name__)
@@ -11,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 class DataService:
     """数据服务类"""
-    
+
     def __init__(self, data_loader: DataLoader):
         """初始化数据服务
         
@@ -20,45 +21,32 @@ class DataService:
         """
         self.data_loader = data_loader
         self._cached_data = {}
-    
-    def get_all_network_nodes(self) -> Dict[str, Any]:
+
+    @staticmethod
+    def get_all_network_nodes() -> Dict[str, Any]:
         """获取所有网络节点数据
         
         Returns:
             Dict[str, Any]: 网络节点数据
         """
-        try:
-            if 'network' not in self._cached_data:
-                network = self.data_loader.load_network()
-                self._cached_data['network'] = network
-            
-            network = self._cached_data['network']
-            
-            # 获取匹配率数据（如果可用）
-            matching_rate = 0.0
-            try:
-                if 'matchings' not in self._cached_data:
-                    matchings = self.data_loader.load_matchings()
-                    self._cached_data['matchings'] = matchings
-                
-                matchings = self._cached_data['matchings']
-                if matchings:
-                    matching_rate = getattr(matchings[0], 'matching_rate', 0.0)
-            except Exception:
-                # 如果匹配数据不可用，使用默认值
-                matching_rate = 0.0
-            
-            return {
-                "nodes_number": network.nodes_number,
-                "sites": network.sites,
-                "location_indices": network.location_indices,
-                "node_count": network.node_count,
-                "matching_rate": matching_rate
-            }
-        except Exception as e:
-            logger.error(f"获取网络节点数据失败: {str(e)}")
-            raise
-    
+        # 定义地名与编号的对应关系
+        node_mapping = [
+            {"name": "成都", "id": 0},
+            {"name": "重庆", "id": 1},
+            {"name": "贵阳", "id": 2},
+            {"name": "怀化", "id": 3},
+            {"name": "北部湾", "id": 4},
+            {"name": "上海", "id": 5},
+            {"name": "胡志明", "id": 6},
+            {"name": "曼谷", "id": 7},
+            {"name": "新加坡", "id": 8}
+        ]
+
+        return {
+            "nodes_number": 9,
+            "nodes": node_mapping
+        }
+
     def get_all_shipments(self) -> Dict[str, Any]:
         """获取所有货物数据
         
@@ -69,12 +57,12 @@ class DataService:
             if 'shipments' not in self._cached_data:
                 shipments = self.data_loader.load_shipments()
                 self._cached_data['shipments'] = shipments
-            
+
             shipments = self._cached_data['shipments']
-            
+
             # 获取统计信息
             stats = shipments.get_statistics()
-            
+
             # 获取所有货物详情
             all_shipments = []
             for shipment in shipments.shipments.values():
@@ -88,7 +76,7 @@ class DataService:
                     "priority": shipment.priority,
                     "status": shipment.status.value if hasattr(shipment.status, 'value') else str(shipment.status)
                 })
-            
+
             return {
                 "total_count": stats["total_shipments"],
                 "status_breakdown": stats.get("status_breakdown", stats.get("status_distribution", {})),
@@ -97,7 +85,7 @@ class DataService:
         except Exception as e:
             logger.error(f"获取货物数据失败: {str(e)}")
             raise
-    
+
     def get_all_routes(self) -> Dict[str, Any]:
         """获取所有路线数据
         
@@ -108,12 +96,12 @@ class DataService:
             if 'routes' not in self._cached_data:
                 routes = self.data_loader.load_routes()
                 self._cached_data['routes'] = routes
-            
+
             routes = self._cached_data['routes']
-            
+
             # 获取统计信息
             stats = routes.get_statistics()
-            
+
             # 获取所有路线详情
             all_routes = []
             for route in routes.routes.values():
@@ -127,7 +115,7 @@ class DataService:
                     "utilization_rate": route.utilization_rate,
                     "efficiency_score": route.efficiency_score
                 })
-            
+
             return {
                 "total_count": stats["total_routes"],
                 "capacity_stats": {
@@ -139,7 +127,7 @@ class DataService:
         except Exception as e:
             logger.error(f"获取路线数据失败: {str(e)}")
             raise
-    
+
     def get_matching_results(self) -> Dict[str, Any]:
         """获取匹配结果数据
         
@@ -150,19 +138,19 @@ class DataService:
             if 'matchings' not in self._cached_data:
                 matchings = self.data_loader.load_matchings()
                 self._cached_data['matchings'] = matchings
-            
+
             matchings = self._cached_data['matchings']
-            
+
             if not matchings:
                 return {
                     "matching_count": 0,
                     "matchings": []
                 }
-            
+
             # 获取第一个匹配结果的详细信息
             matching = matchings[0]
             matching_dict = matching.to_dict()
-            
+
             return {
                 "matching_count": len(matchings),
                 "matchings": [matching_dict]
@@ -170,7 +158,7 @@ class DataService:
         except Exception as e:
             logger.error(f"获取匹配结果数据失败: {str(e)}")
             raise
-    
+
     def get_network_summary(self) -> Dict[str, Any]:
         """获取网络摘要信息
         
@@ -182,7 +170,7 @@ class DataService:
             shipments_data = self.get_all_shipments()
             routes_data = self.get_all_routes()
             matching_data = self.get_matching_results()
-            
+
             return {
                 "network": {
                     "total_nodes": network_data["nodes_number"],
@@ -204,7 +192,7 @@ class DataService:
         except Exception as e:
             logger.error(f"获取网络摘要失败: {str(e)}")
             raise
-    
+
     def search_shipments_by_destination(self, destination: str) -> List[Dict[str, Any]]:
         """按目的地搜索货物
         
@@ -216,18 +204,18 @@ class DataService:
         """
         try:
             shipments_data = self.get_all_shipments()
-            
+
             matching_shipments = []
             for shipment in shipments_data["shipments"]:
-                if shipment["destination_node"] == destination:
+                if shipment["destination_node"] == int(destination):
                     matching_shipments.append(shipment)
-            
+
             return matching_shipments
         except Exception as e:
             logger.error(f"按目的地搜索货物失败: {str(e)}")
             raise
-    
-    def filter_routes_by_nodes(self, origin: Optional[str] = None, 
+
+    def filter_routes_by_nodes(self, origin: Optional[str] = None,
                                destination: Optional[str] = None) -> List[Dict[str, Any]]:
         """按起点和终点筛选路线
         
@@ -240,22 +228,22 @@ class DataService:
         """
         try:
             routes_data = self.get_all_routes()
-            
+
             matching_routes = []
             for route in routes_data["routes"]:
                 # 检查起点条件
                 origin_match = not origin or (route["nodes"] and route["nodes"][0] == origin)
                 # 检查终点条件
                 dest_match = not destination or (route["nodes"] and route["nodes"][-1] == destination)
-                
+
                 if origin_match and dest_match:
                     matching_routes.append(route)
-            
+
             return matching_routes
         except Exception as e:
             logger.error(f"按节点筛选路线失败: {str(e)}")
             raise
-    
+
     def clear_cache(self):
         """清除缓存数据"""
         self._cached_data.clear()

@@ -156,37 +156,3 @@ class StableMatching:
             restart_num=stats.get('restart_num', 0),
             cpu_time=stats.get('cpu_time', 0.0)
         )
-
-
-class MatchingCollection:
-    """匹配结果集合管理类"""
-
-    def __init__(self):
-        self.matchings: List[StableMatching] = []
-
-    def add_matching(self, matching: StableMatching):
-        """添加匹配结果"""
-        self.matchings.append(matching)
-
-    def get_latest_matching(self) -> Optional[StableMatching]:
-        """获取最新的匹配结果"""
-        return self.matchings[-1] if self.matchings else None
-
-    def get_all_matchings(self) -> List[StableMatching]:
-        """获取所有匹配结果"""
-        return self.matchings.copy()
-
-    def get_statistics_summary(self) -> Dict[str, Any]:
-        """获取统计摘要"""
-        if not self.matchings:
-            return {'total_runs': 0}
-
-        latest = self.get_latest_matching()
-
-        return {
-            'total_runs': len(self.matchings),
-            'latest_matching': latest.to_dict() if latest else None,
-            'average_cpu_time': sum(m.cpu_time for m in self.matchings) / len(self.matchings),
-            'average_matching_rate': sum(m.matching_rate for m in self.matchings) / len(self.matchings),
-            'stable_matchings': sum(1 for m in self.matchings if m.is_stable)
-        }
