@@ -182,3 +182,72 @@ class Route:
         except (ValueError, IndexError, TypeError) as e:
             print(f"解析CSV行失败: {e}, 数据: {row_data[:5]}...")
             return None
+
+
+class RouteCollection:
+    """路线集合管理类"""
+
+    def __init__(self):
+        self.routes: Dict[int, Route] = {}
+
+    def add_route(self, route: Route):
+        """添加路线"""
+        if route.route_id in self.routes:
+            raise ValueError(f"路线ID已存在: {route.route_id}")
+        self.routes[route.route_id] = route
+
+    def get_route(self, route_id: int) -> Optional[Route]:
+        """获取指定路线"""
+        return self.routes.get(route_id)
+
+    def get_all_routes(self) -> List[Route]:
+        """获取所有路线"""
+        return list(self.routes.values())
+
+    def get_routes_by_node(self, node_id: int) -> List[Route]:
+        """获取经过指定节点的路线"""
+        return [r for r in self.routes.values() if node_id in r.nodes]
+
+    def get_routes_by_origin(self, origin_node: int) -> List[Route]:
+        """按起始节点获取路线"""
+        return [r for r in self.routes.values() if r.origin_node == origin_node]
+
+    def get_routes_by_destination(self, destination_node: int) -> List[Route]:
+        """按目标节点获取路线"""
+        return [r for r in self.routes.values() if r.destination_node == destination_node]
+
+    def find_routes_for_shipment(self, origin_node: int, destination_node: int, demand: int) -> List[Route]:
+        """为货物匹配合适的路线"""
+        suitable_routes = []
+
+        for route in self.routes.values():
+            # 检查路线是否连接起始和目标节点
+            if route.origin_node == origin_node and route.destination_node == destination_node:
+                # 检查容量是否足够
+                if route.can_accommodate(demand):
+                    suitable_routes.append(route)
+
+        # 按效率评分排序（降序）
+        suitable_routes.sort(key=lambda r: r.calculate_efficiency_score(), reverse=True)
+        return suitable_routes
+
+    def get_statistics(self) -> Dict[str, Any]:
+        """获取统计信息"""
+        if not self.routes:
+            return {'total_routes': 0}
+
+        routes = list(self.routes.values())
+
+        return {
+            'total_routes': len(routes),
+            'total_capacity': sum(r.capacity for r in routes),
+            'total_current_load': sum(r.current_load for r in routes),
+            'total_available_capacity': sum(r.available_capacity for r in routes),
+            'average_utilization_rate': sum(r.utilization_rate for r in routes) / len(routes),
+            'full_routes': len([r for r in routes if r.is_full]),
+            'total_travel_time': sum(r.total_travel_time for r in routes),
+            'average_travel_time': sum(r.total_travel_time for r in routes) / len(routes),
+            'average_total_cost': sum(r.total_cost for r in routes) / len(routes),
+            'route_with_highest_efficiency': max(routes, key=lambda r: r.efficiency_score).route_id if routes else None,
+            'route_with_lowest_efficiency': min(routes, key=lambda r: r.efficiency_score).route_id if routes else None
+        }

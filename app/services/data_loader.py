@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 
 from ..models.matching import StableMatching
-from ..models.route import Route
+from ..models.route import Route, RouteCollection
 from ..models.shipment import Shipment, ShipmentCollection
 
 
@@ -55,20 +55,21 @@ class DataLoader:
         self.shipments = collection
         return self.shipments
 
-    def load_routes(self, filename: str = "route.csv") -> Route:
+    def load_routes(self, filename: str = "route.csv") -> RouteCollection:
         """加载路线数据
 
         Args:
             filename: CSV文件名
 
         Returns:
-            Route: 路线对象
+            RouteCollection: 路线集合
         """
         file_path = self.data_dir / filename
 
         if not file_path.exists():
             raise FileNotFoundError(f"文件不存在: {file_path}")
 
+        collection = RouteCollection()
         with open(file_path, 'r', encoding='utf-8') as file:
             reader = csv.reader(file)
             next(reader)  # 跳过第一行元数据
@@ -79,14 +80,13 @@ class DataLoader:
                     try:
                         route = Route.from_csv_row(row)
                         if route:  # 确保route不是None
-                            self.routes = route
-                            return route
+                            collection.add_route(route)
                     except Exception as e:
                         print(f"跳过无效行: {row[:3]}... 错误: {e}")
                         continue
 
-        # 如果没有找到有效的路线，返回None或抛出异常
-        raise ValueError("未找到有效的路线数据")
+        self.routes = collection
+        return self.routes
 
     def load_matchings(self, filename: str = "stable_matching.csv") -> List[StableMatching]:
         """加载稳定匹配数据

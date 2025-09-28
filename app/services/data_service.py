@@ -88,7 +88,7 @@ class DataService:
 
     def get_all_routes(self) -> Dict[str, Any]:
         """获取所有路线数据
-        
+
         Returns:
             Dict[str, Any]: 路线数据
         """
@@ -159,39 +159,6 @@ class DataService:
             logger.error(f"获取匹配结果数据失败: {str(e)}")
             raise
 
-    def get_network_summary(self) -> Dict[str, Any]:
-        """获取网络摘要信息
-        
-        Returns:
-            Dict[str, Any]: 网络摘要
-        """
-        try:
-            network_data = self.get_all_network_nodes()
-            shipments_data = self.get_all_shipments()
-            routes_data = self.get_all_routes()
-            matching_data = self.get_matching_results()
-
-            return {
-                "network": {
-                    "total_nodes": network_data["nodes_number"],
-                    "sites": network_data["sites"]
-                },
-                "shipments": {
-                    "total": shipments_data["total_count"],
-                    "status_breakdown": shipments_data["status_breakdown"]
-                },
-                "routes": {
-                    "total": routes_data["total_count"],
-                    "total_capacity": routes_data["capacity_stats"]["total_capacity"],
-                    "avg_utilization": routes_data["capacity_stats"].get("avg_utilization", 0.0)
-                },
-                "matching": {
-                    "total_matchings": matching_data["matching_count"]
-                }
-            }
-        except Exception as e:
-            logger.error(f"获取网络摘要失败: {str(e)}")
-            raise
 
     def search_shipments_by_destination(self, destination: str) -> List[Dict[str, Any]]:
         """按目的地搜索货物
@@ -232,9 +199,9 @@ class DataService:
             matching_routes = []
             for route in routes_data["routes"]:
                 # 检查起点条件
-                origin_match = not origin or (route["nodes"] and route["nodes"][0] == origin)
+                origin_match = not origin or (route["nodes"] and route["nodes"][0] == int(origin))
                 # 检查终点条件
-                dest_match = not destination or (route["nodes"] and route["nodes"][-1] == destination)
+                dest_match = not destination or (route["nodes"] and route["nodes"][-1] == int(destination))
 
                 if origin_match and dest_match:
                     matching_routes.append(route)

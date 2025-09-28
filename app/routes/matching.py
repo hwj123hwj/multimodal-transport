@@ -2,12 +2,10 @@
 匹配API路由
 提供货物匹配相关的REST API接口
 """
-from fastapi import APIRouter, HTTPException, Query
-from typing import List, Dict, Any, Optional
+from fastapi import APIRouter, HTTPException
 
 from ..services.data_loader import DataLoader
 from ..services.matching_service import MatchingService
-
 
 # 创建路由实例
 router = APIRouter(prefix="/api/matching", tags=["matching"])
@@ -51,7 +49,7 @@ async def get_matching_by_shipment(shipment_id: int):
         matching = matching_service.get_matching_by_shipment(shipment_id)
         if matching is None:
             raise HTTPException(status_code=404, detail=f"未找到货物ID {shipment_id} 的匹配结果")
-        
+
         return {
             "status": "success",
             "data": matching
@@ -74,29 +72,6 @@ async def get_matching_by_route(route_id: int):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取匹配结果失败: {str(e)}")
-
-
-@router.get("/validate/{shipment_id}")
-async def validate_matching(shipment_id: int):
-    """验证特定匹配的有效性"""
-    try:
-        matching = matching_service.get_matching_by_shipment(shipment_id)
-        if matching is None:
-            raise HTTPException(status_code=404, detail=f"未找到货物ID {shipment_id} 的匹配结果")
-        
-        # 这里需要重构验证逻辑，简化版本
-        return {
-            "status": "success",
-            "data": {
-                "shipment_id": shipment_id,
-                "is_valid": True,
-                "message": "匹配验证通过"
-            }
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"验证匹配失败: {str(e)}")
 
 
 @router.get("/health")
