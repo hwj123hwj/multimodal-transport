@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>物流网络匹配系统 - 智能可视化平台</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- 加载动画 -->
+    <div id="loading-screen" class="loading-screen">
+        <div class="loading-content">
+            <div class="loading-logo">
+                <i class="fas fa-shipping-fast"></i>
+            </div>
+            <div class="loading-text">物流网络匹配系统</div>
+            <div class="loading-subtitle">正在加载智能可视化平台...</div>
+            <div class="loading-bar">
+                <div class="loading-progress"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主界面 -->
+    <div id="main-app" class="main-app hidden">
+        <!-- 顶部导航栏 -->
+        <nav class="navbar">
+            <div class="nav-brand">
+                <i class="fas fa-network-wired"></i>
+                <span>物流网络匹配系统</span>
+            </div>
+            <div class="nav-menu">
+                <button class="nav-item active" data-view="dashboard">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>总览</span>
+                </button>
+                <button class="nav-item" data-view="network">
+                    <i class="fas fa-project-diagram"></i>
+                    <span>网络图</span>
+                </button>
+                <button class="nav-item" data-view="matching">
+                    <i class="fas fa-puzzle-piece"></i>
+                    <span>匹配分析</span>
+                </button>
+                <button class="nav-item" data-view="analytics">
+                    <i class="fas fa-chart-line"></i>
+                    <span>数据分析</span>
+                </button>
+            </div>
+            <div class="nav-actions">
+                <button class="refresh-btn" id="refresh-data">
+                    <i class="fas fa-sync-alt"></i>
+                    <span>刷新数据</span>
+                </button>
+            </div>
+        </nav>
+
+        <!-- 侧边栏 -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h3>控制面板</h3>
+                <button class="sidebar-toggle" id="sidebar-toggle">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+            </div>
+            
+            <div class="sidebar-content">
+                <!-- 统计概览 -->
+                <div class="stats-section">
+                    <h4>实时统计</h4>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-boxes"></i>
+                            </div>
+                            <div class="stat-info">
+                                <div class="stat-number" id="total-shipments">0</div>
+                                <div class="stat-label">总货物数</div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-route"></i>
+                            </div>
+                            <div class="stat-info">
+                                <div class="stat-number" id="total-routes">0</div>
+                                <div class="stat-label">总路线数</div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-link"></i>
+                            </div>
+                            <div class="stat-info">
+                                <div class="stat-number" id="matching-rate">0%</div>
+                                <div class="stat-label">匹配率</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 筛选器 -->
+                <div class="filters-section">
+                    <h4>数据筛选</h4>
+                    <div class="filter-group">
+                        <label>优先级筛选</label>
+                        <select id="priority-filter" class="filter-select">
+                            <option value="">全部优先级</option>
+                            <option value="1">低优先级</option>
+                            <option value="2">中等优先级</option>
+                            <option value="3">高优先级</option>
+                            <option value="4">最高优先级</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>城市筛选</label>
+                        <select id="city-filter" class="filter-select">
+                            <option value="">全部城市</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>利用率范围</label>
+                        <div class="range-slider">
+                            <input type="range" id="utilization-min" min="0" max="100" value="0">
+                            <input type="range" id="utilization-max" min="0" max="100" value="100">
+                            <div class="range-values">
+                                <span id="utilization-min-value">0%</span>
+                                <span id="utilization-max-value">100%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 图例 -->
+                <div class="legend-section">
+                    <h4>图例说明</h4>
+                    <div class="legend-items">
+                        <div class="legend-item">
+                            <div class="legend-color priority-4"></div>
+                            <span>最高优先级</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color priority-3"></div>
+                            <span>高优先级</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color priority-2"></div>
+                            <span>中等优先级</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color priority-1"></div>
+                            <span>低优先级</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- 主内容区域 -->
+        <main class="main-content">
+            <!-- 总览视图 -->
+            <div id="dashboard-view" class="view-container active">
+                <div class="dashboard-header">
+                    <h1>物流网络总览</h1>
+                    <p>实时监控货物运输状态和匹配效率</p>
+                </div>
+                
+                <div class="dashboard-grid">
+                    <!-- 地图容器 -->
+                    <div class="map-container">
+                        <div class="map-header">
+                            <h3>运输网络地图</h3>
+                            <div class="map-controls">
+                                <button class="map-btn" id="toggle-routes">
+                                    <i class="fas fa-route"></i>
+                                    <span>显示路线</span>
+                                </button>
+                                <button class="map-btn" id="toggle-shipments">
+                                    <i class="fas fa-box"></i>
+                                    <span>显示货物</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div id="network-map" class="network-map"></div>
+                    </div>
+
+                    <!-- 实时匹配状态 -->
+                    <div class="matching-status">
+                        <h3>实时匹配状态</h3>
+                        <div class="matching-visualization">
+                            <div class="matching-circle">
+                                <div class="circle-progress" id="matching-progress">
+                                    <div class="circle-inner">
+                                        <div class="circle-percentage" id="matching-percentage">0%</div>
+                                        <div class="circle-label">匹配率</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="matching-details">
+                                <div class="detail-item">
+                                    <span class="detail-label">已匹配</span>
+                                    <span class="detail-value" id="matched-count">0</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">未匹配</span>
+                                    <span class="detail-value" id="unmatched-count">0</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">平均利用率</span>
+                                    <span class="detail-value" id="avg-utilization">0%</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="summary-chart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- 货物优先级分布 -->
+                    <div class="priority-chart">
+                        <h3>货物优先级分布</h3>
+                        <div class="chart-container">
+                            <canvas id="priority-chart"></canvas>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="utilization-chart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- 路线利用率排行 -->
+                    <div class="route-utilization">
+                        <h3>路线利用率排行</h3>
+                        <div class="route-list" id="route-utilization-list">
+                            <!-- 动态生成 -->
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="matching-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 网络图视图 -->
+                <div id="network-view" class="view-container">
+                    <div class="network-header">
+                        <h1>网络拓扑图</h1>
+                        <p>详细的物流网络连接关系</p>
+                        <div class="view-controls">
+                            <button class="btn btn-secondary" onclick="app.resetMapView()">重置视图</button>
+                            <button class="btn btn-primary" onclick="app.exportNetwork()">导出网络</button>
+                        </div>
+                    </div>
+                    <div class="network-content">
+                        <div id="topology-graph" class="topology-graph"></div>
+                        <div class="map-container" id="map-container"></div>
+                    </div>
+                </div>
+
+            <!-- 匹配分析视图 -->
+            <div id="matching-view" class="view-container">
+                <div class="matching-header">
+                    <h1>匹配算法分析</h1>
+                    <p>稳定匹配算法运行结果和效率分析</p>
+                </div>
+                <div class="matching-content">
+                    <div class="matching-results">
+                        <div class="results-summary">
+                            <h3>匹配结果摘要</h3>
+                            <div class="summary-cards">
+                                <div class="summary-card">
+                                    <div class="card-icon">
+                                        <i class="fas fa-check-circle"></i>
+                                    </div>
+                                    <div class="card-content">
+                                        <div class="card-number" id="successful-matches">0</div>
+                                        <div class="card-label">成功匹配</div>
+                                    </div>
+                                </div>
+                                <div class="summary-card">
+                                    <div class="card-icon">
+                                        <i class="fas fa-times-circle"></i>
+                                    </div>
+                                    <div class="card-content">
+                                        <div class="card-number" id="failed-matches">0</div>
+                                        <div class="card-label">未匹配</div>
+                                    </div>
+                                </div>
+                                <div class="summary-card">
+                                    <div class="card-icon">
+                                        <i class="fas fa-chart-pie"></i>
+                                    </div>
+                                    <div class="card-content">
+                                        <div class="card-number" id="efficiency-score">0%</div>
+                                        <div class="card-label">匹配效率</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="matching-table">
+                            <h3>详细匹配结果</h3>
+                            <div class="table-container">
+                                <table id="matching-results-table">
+                                    <thead>
+                                        <tr>
+                                            <th>货物ID</th>
+                                            <th>起点</th>
+                                            <th>终点</th>
+                                            <th>优先级</th>
+                                            <th>分配路线</th>
+                                            <th>匹配分数</th>
+                                            <th>状态</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="matching-results-tbody">
+                                        <!-- 动态生成 -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 数据分析视图 -->
+            <div id="analytics-view" class="view-container">
+                <div class="analytics-header">
+                    <h1>数据分析</h1>
+                    <p>深度数据挖掘和趋势分析</p>
+                </div>
+                <div class="analytics-content">
+                    <div class="charts-grid">
+                        <div class="chart-card">
+                            <h3>货物重量分布</h3>
+                            <canvas id="weight-chart"></canvas>
+                        </div>
+                        <div class="chart-card">
+                            <h3>路线成本分析</h3>
+                            <canvas id="cost-chart"></canvas>
+                        </div>
+                        <div class="chart-card">
+                            <h3>时间价值分布</h3>
+                            <canvas id="timevalue-chart"></canvas>
+                        </div>
+                        <div class="chart-card">
+                            <h3>利用率热力图</h3>
+                            <canvas id="utilization-heatmap"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- 详情模态框 -->
+        <div id="detail-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="modal-title">详细信息</h3>
+                    <button class="modal-close" id="modal-close">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body" id="modal-body">
+                    <!-- 动态内容 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 通知系统 -->
+        <div id="notification-container" class="notification-container">
+            <!-- 动态通知 -->
+        </div>
+    </div>
+
+    <!-- 脚本文件 -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/map.js"></script>
+    <script src="js/charts.js"></script>
+    <script src="js/animations.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
