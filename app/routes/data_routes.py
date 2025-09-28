@@ -65,16 +65,3 @@ async def get_matching_result():
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取匹配结果失败: {str(e)}")
-
-
-@router.post("/cache/clear")
-async def clear_cache():
-    """清除数据缓存"""
-    try:
-        data_service.clear_cache()
-        return {
-            "status": "success",
-            "message": "数据缓存已清除"
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"清除缓存失败: {str(e)}")
