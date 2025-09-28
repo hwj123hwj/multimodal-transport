@@ -6,12 +6,13 @@ from fastapi import APIRouter, HTTPException
 
 from ..services.data_loader import DataLoader
 from ..services.data_service import DataService
+from ..config import get_data_dir
 
 # 创建路由实例
 router = APIRouter(prefix="/api", tags=["data"])
 
-# 初始化服务和数据加载器
-data_loader = DataLoader("data")
+# 初始化服务和数据加载器 - 使用配置中的数据目录
+data_loader = DataLoader(get_data_dir())
 data_service = DataService(data_loader)
 
 

@@ -63,23 +63,28 @@ class DataService:
             # 获取统计信息
             stats = shipments.get_statistics()
 
+            # 获取城市映射
+            network_nodes = self.get_all_network_nodes()
+            node_mapping = {node["id"]: node["name"] for node in network_nodes["nodes"]}
+
             # 获取所有货物详情
             all_shipments = []
             for shipment in shipments.shipments.values():
                 all_shipments.append({
                     "shipment_id": shipment.shipment_id,
                     "origin_node": shipment.origin_node,
+                    "origin_city": node_mapping.get(shipment.origin_node, f"未知城市({shipment.origin_node})"),
                     "destination_node": shipment.destination_node,
+                    "destination_city": node_mapping.get(shipment.destination_node, f"未知城市({shipment.destination_node})"),
                     "demand": shipment.demand,
                     "weight": shipment.weight,
                     "volume": shipment.volume,
-                    "priority": shipment.priority,
-                    "status": shipment.status.value if hasattr(shipment.status, 'value') else str(shipment.status)
+                    "priority": shipment.priority
                 })
 
             return {
                 "total_count": stats["total_shipments"],
-                "status_breakdown": stats.get("status_breakdown", stats.get("status_distribution", {})),
+                "priority_breakdown": stats.get("priority_distribution", {}),
                 "shipments": all_shipments
             }
         except Exception as e:
@@ -102,12 +107,20 @@ class DataService:
             # 获取统计信息
             stats = routes.get_statistics()
 
+            # 获取城市映射
+            network_nodes = self.get_all_network_nodes()
+            node_mapping = {node["id"]: node["name"] for node in network_nodes["nodes"]}
+
             # 获取所有路线详情
             all_routes = []
             for route in routes.routes.values():
+                # 转化节点索引为城市名称
+                node_cities = [node_mapping.get(node_id, f"未知城市({node_id})") for node_id in route.nodes]
+                
                 all_routes.append({
                     "route_id": route.route_id,
                     "nodes": route.nodes,
+                    "node_cities": node_cities,
                     "costs": route.costs,
                     "travel_times": route.travel_times,
                     "capacity": route.capacity,
@@ -177,6 +190,15 @@ class DataService:
                 if shipment["destination_node"] == int(destination):
                     matching_shipments.append(shipment)
 
+            # 获取城市映射
+            network_nodes = self.get_all_network_nodes()
+            node_mapping = {node["id"]: node["name"] for node in network_nodes["nodes"]}
+
+            # 为匹配的货物添加城市名称
+            for shipment in matching_shipments:
+                shipment["origin_city"] = node_mapping.get(shipment["origin_node"], f"未知城市({shipment['origin_node']})")
+                shipment["destination_city"] = node_mapping.get(shipment["destination_node"], f"未知城市({shipment['destination_node']})")
+
             return matching_shipments
         except Exception as e:
             logger.error(f"按目的地搜索货物失败: {str(e)}")
@@ -206,6 +228,8 @@ class DataService:
                 if origin_match and dest_match:
                     matching_routes.append(route)
 
+            # 按利用率降序排序，优先展示高利用率路线
+            matching_routes.sort(key=lambda r: r.get("utilization_rate", 0), reverse=True)
             return matching_routes
         except Exception as e:
             logger.error(f"按节点筛选路线失败: {str(e)}")

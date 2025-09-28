@@ -3,14 +3,7 @@
 用于表示货物运输需求
 """
 from dataclasses import dataclass
-from enum import Enum
 from typing import List, Optional, Dict, Any
-
-
-class ShipmentStatus(Enum):
-    """货物状态枚举"""
-    PENDING = "pending"  # 待匹配
-    MATCHED = "matched"  # 已匹配
 
 
 @dataclass
@@ -22,7 +15,6 @@ class Shipment:
     demand: int  # 对应CSV中的"Demand" (TEU)
     time_value: int  # 对应CSV中的"Time value(CNY/TEU)"
     classification: int = -1  # 对应CSV中的"Classification" (冗余字段，默认为-1)
-    status: ShipmentStatus = ShipmentStatus.PENDING
 
     def __post_init__(self):
         """数据验证和后处理"""
@@ -94,7 +86,6 @@ class Shipment:
             'demand': self.demand,
             'time_value': self.time_value,
             'classification': self.classification,
-            'status': self.status.value,
             'weight': self.weight,
             'volume': self.volume,
             'priority': self.priority,
@@ -161,18 +152,6 @@ class ShipmentCollection:
         """按目标节点获取货物"""
         return [s for s in self.shipments.values() if s.destination_node == destination_node]
 
-    def get_shipments_by_status(self, status: ShipmentStatus) -> List[Shipment]:
-        """按状态获取货物"""
-        return [s for s in self.shipments.values() if s.status == status]
-
-    def get_pending_shipments(self) -> List[Shipment]:
-        """获取待匹配货物"""
-        return self.get_shipments_by_status(ShipmentStatus.PENDING)
-
-    def get_matched_shipments(self) -> List[Shipment]:
-        """获取已匹配货物"""
-        return self.get_shipments_by_status(ShipmentStatus.MATCHED)
-
     def get_high_priority_shipments(self) -> List[Shipment]:
         """获取高优先级货物（优先级>=3）"""
         return [s for s in self.shipments.values() if s.priority >= 3]
@@ -190,10 +169,6 @@ class ShipmentCollection:
             'total_weight': sum(s.weight for s in shipments),
             'total_volume': sum(s.volume for s in shipments),
             'average_time_value': sum(s.time_value for s in shipments) / len(shipments),
-            'status_distribution': {
-                status.value: len(self.get_shipments_by_status(status))
-                for status in ShipmentStatus
-            },
             'priority_distribution': {
                 'priority_1': len([s for s in shipments if s.priority == 1]),
                 'priority_2': len([s for s in shipments if s.priority == 2]),

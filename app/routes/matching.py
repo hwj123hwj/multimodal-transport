@@ -1,17 +1,20 @@
 """
-匹配API路由
-提供货物匹配相关的REST API接口
+匹配算法API路由
+提供匹配算法的REST API接口
 """
 from fastapi import APIRouter, HTTPException
 
+from ..config import get_data_dir
 from ..services.data_loader import DataLoader
+from ..services.data_service import DataService
 from ..services.matching_service import MatchingService
 
 # 创建路由实例
-router = APIRouter(prefix="/api/matching", tags=["matching"])
+router = APIRouter(prefix="/api", tags=["matching"])
 
-# 初始化服务和数据加载器
-data_loader = DataLoader("data")
+# 初始化服务和数据加载器 - 使用配置中的数据目录
+data_loader = DataLoader(get_data_dir())
+data_service = DataService(data_loader)
 matching_service = MatchingService(data_loader)
 
 
@@ -72,23 +75,3 @@ async def get_matching_by_route(route_id: int):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取匹配结果失败: {str(e)}")
-
-
-@router.get("/health")
-async def health_check():
-    """健康检查接口"""
-    try:
-        # 尝试加载数据来检查服务状态
-        matchings = matching_service.load_matchings()
-        return {
-            "status": "healthy",
-            "service": "matching",
-            "data_loaded": len(matchings) > 0,
-            "matching_count": len(matchings)
-        }
-    except Exception as e:
-        return {
-            "status": "unhealthy",
-            "service": "matching",
-            "error": str(e)
-        }

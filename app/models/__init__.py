@@ -9,12 +9,11 @@
 
 from .matching import StableMatching
 from .route import Route
-from .shipment import Shipment, ShipmentStatus, ShipmentCollection
+from .shipment import Shipment, ShipmentCollection
 
 __all__ = [
     # 货物模型
     'Shipment',
-    'ShipmentStatus',
     'ShipmentCollection',
 
     # 路线模型
