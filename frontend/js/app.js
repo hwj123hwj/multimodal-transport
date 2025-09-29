@@ -9,7 +9,9 @@ class LogisticsApp {
         this.isLoading = false;
         this.data = null;
         this.map = null;
+        this.networkMap = null;  // 网络图地图实例
         this.charts = {};
+        this.topologyInitialized = false;  // 拓扑图初始化状态
         this.filters = {
             priority: 'all',
             status: 'all',
@@ -36,6 +38,20 @@ class LogisticsApp {
     async init() {
         try {
             console.log('初始化物流可视化应用...');
+            
+            // Edge浏览器特殊处理 - 强制清理初始状态
+            if (navigator.userAgent.includes('Edg')) {
+                console.log('检测到Edge浏览器，执行强制清理');
+                document.querySelectorAll('.view-container').forEach(container => {
+                    container.style.setProperty('display', 'none', 'important');
+                    container.style.setProperty('visibility', 'hidden', 'important');
+                    container.style.setProperty('opacity', '0', 'important');
+                    container.style.setProperty('position', 'absolute', 'important');
+                    container.style.setProperty('top', '-9999px', 'important');
+                    container.style.setProperty('left', '-9999px', 'important');
+                    container.classList.remove('active');
+                });
+            }
             
             // 显示加载界面
             this.showLoadingScreen();
@@ -104,6 +120,29 @@ class LogisticsApp {
      * 初始化UI组件
      */
     initUI() {
+        // Edge浏览器特殊处理 - 初始状态强制清理
+        if (navigator.userAgent.includes('Edg')) {
+            console.log('Edge浏览器：初始化时强制清理视图状态');
+            document.querySelectorAll('.view-container').forEach(container => {
+                container.style.setProperty('display', 'none', 'important');
+                container.style.setProperty('visibility', 'hidden', 'important');
+                container.style.setProperty('opacity', '0', 'important');
+                container.style.setProperty('position', 'absolute', 'important');
+                container.style.setProperty('top', '-9999px', 'important');
+                container.style.setProperty('left', '-9999px', 'important');
+                container.style.setProperty('width', '0', 'important');
+                container.style.setProperty('height', '0', 'important');
+                container.style.setProperty('overflow', 'hidden', 'important');
+                container.style.setProperty('z-index', '-9999', 'important');
+                container.classList.remove('active');
+            });
+            
+            // 延迟后显示仪表板
+            setTimeout(() => {
+                this.renderDashboard();
+            }, 100);
+        }
+        
         // 初始化导航
         this.initNavigation();
         
@@ -203,6 +242,22 @@ class LogisticsApp {
         if (refreshBtn) {
             refreshBtn.addEventListener('click', () => {
                 this.refreshData();
+            });
+        }
+
+        // 重置视图按钮
+        const resetViewBtn = document.getElementById('reset-view');
+        if (resetViewBtn) {
+            resetViewBtn.addEventListener('click', () => {
+                this.resetMapView();
+            });
+        }
+
+        // 导出网络按钮
+        const exportNetworkBtn = document.getElementById('export-network');
+        if (exportNetworkBtn) {
+            exportNetworkBtn.addEventListener('click', () => {
+                this.exportNetwork();
             });
         }
     }
@@ -865,10 +920,78 @@ class LogisticsApp {
     }
 
     /**
+     * 清理视图内容
+     */
+    async cleanupView(viewName) {
+        // Edge浏览器特殊处理 - 强制深度清理
+        if (navigator.userAgent.includes('Edg')) {
+            console.log('Edge浏览器：执行深度视图清理');
+            
+            // 强制隐藏所有视图容器 - 使用多种方式确保完全隐藏
+            document.querySelectorAll('.view-container').forEach((container, index) => {
+                // 使用setProperty来确保!important优先级
+                container.style.setProperty('display', 'none', 'important');
+                container.style.setProperty('visibility', 'hidden', 'important');
+                container.style.setProperty('opacity', '0', 'important');
+                container.style.setProperty('position', 'absolute', 'important');
+                container.style.setProperty('top', '-9999px', 'important');
+                container.style.setProperty('left', '-9999px', 'important');
+                container.style.setProperty('width', '0', 'important');
+                container.style.setProperty('height', '0', 'important');
+                container.style.setProperty('overflow', 'hidden', 'important');
+                
+                // 移除active类
+                container.classList.remove('active');
+                
+                // 强制重绘
+                container.offsetHeight;
+            });
+            
+            // 延迟确保清理完成
+            await new Promise(resolve => setTimeout(resolve, 100));
+            console.log('Edge浏览器：深度清理完成');
+            return;
+        }
+        
+        // 普通浏览器的清理逻辑
+        document.querySelectorAll('.view-container').forEach(container => {
+            container.style.display = 'none';
+            container.classList.remove('active');
+            container.style.visibility = 'hidden';
+            container.style.opacity = '0';
+        });
+        
+        // 清理地图实例
+        if (viewName === 'network' && this.networkMap) {
+            // 保持网络图地图实例，但隐藏容器
+            const mapContainer = document.getElementById('map-container');
+            if (mapContainer) {
+                mapContainer.style.display = 'none';
+            }
+        }
+        
+        // 清理图表
+        if (this.charts) {
+            Object.values(this.charts).forEach(chart => {
+                if (chart && typeof chart.destroy === 'function') {
+                    // 不销毁图表，只隐藏容器
+                }
+            });
+        }
+    }
+
+    /**
      * 切换视图
      */
-    switchView(viewName) {
+    async switchView(viewName) {
         if (this.currentView === viewName) return;
+
+        console.log(`切换视图: ${this.currentView} -> ${viewName}`);
+
+        // 清理当前视图
+        if (this.currentView) {
+            await this.cleanupView(this.currentView);
+        }
 
         // 更新导航状态
         document.querySelectorAll('.nav-item').forEach(item => {
@@ -876,11 +999,29 @@ class LogisticsApp {
         });
         document.querySelector(`[data-view="${viewName}"]`).classList.add('active');
 
-        // 更新视图内容
-        document.querySelectorAll('.view-content').forEach(view => {
-            view.style.display = 'none';
-        });
-        document.getElementById(`${viewName}-view`).style.display = 'block';
+        // 显示目标视图
+        const targetView = document.getElementById(`${viewName}-view`);
+        if (targetView) {
+            // Edge浏览器特殊处理 - 强制重置样式
+            if (navigator.userAgent.includes('Edg')) {
+                console.log('Edge浏览器：强制显示目标视图');
+                targetView.style.setProperty('display', 'block', 'important');
+                targetView.style.setProperty('visibility', 'visible', 'important');
+                targetView.style.setProperty('opacity', '1', 'important');
+                targetView.style.setProperty('position', 'relative', 'important');
+                targetView.style.setProperty('top', '0', 'important');
+                targetView.style.setProperty('left', '0', 'important');
+                targetView.style.setProperty('width', 'auto', 'important');
+                targetView.style.setProperty('height', 'auto', 'important');
+                targetView.style.setProperty('overflow', 'visible', 'important');
+            } else {
+                targetView.style.display = 'block';
+                targetView.style.visibility = 'visible';
+                targetView.style.opacity = '1';
+            }
+            targetView.classList.add('active');
+            console.log(`显示视图: ${viewName}-view`);
+        }
 
         this.currentView = viewName;
 
@@ -915,15 +1056,253 @@ class LogisticsApp {
      * 渲染仪表板
      */
     renderDashboard() {
-        // 仪表板已经在初始化时渲染
+        console.log('渲染仪表板视图');
+        
+        // 确保仪表板视图容器正确显示
+        const dashboardView = document.getElementById('dashboard-view');
+        if (dashboardView) {
+            // Edge浏览器特殊处理
+            if (navigator.userAgent.includes('Edg')) {
+                dashboardView.style.setProperty('display', 'block', 'important');
+                dashboardView.style.setProperty('visibility', 'visible', 'important');
+                dashboardView.style.setProperty('opacity', '1', 'important');
+                dashboardView.style.setProperty('position', 'relative', 'important');
+                dashboardView.style.setProperty('top', '0', 'important');
+                dashboardView.style.setProperty('left', '0', 'important');
+                dashboardView.style.setProperty('width', 'auto', 'important');
+                dashboardView.style.setProperty('height', 'auto', 'important');
+                dashboardView.style.setProperty('overflow', 'visible', 'important');
+                dashboardView.style.setProperty('z-index', 'auto', 'important');
+            }
+            
+            // 确保active类存在
+            dashboardView.classList.add('active');
+            
+            // 触发重绘确保样式生效
+            dashboardView.offsetHeight;
+        }
+        
+        // 更新所有仪表板组件
+        this.updateDashboardComponents();
+    }
+    
+    /**
+     * 更新仪表板组件
+     */
+    updateDashboardComponents() {
+        // 更新统计卡片
+        this.updateStatsCards();
+        
+        // 更新表格
+        this.updateTables();
+        
+        // 更新地图
+        if (this.map) {
+            this.map.invalidateSize();
+        }
+        
+        console.log('仪表板组件更新完成');
     }
 
     /**
      * 渲染网络视图
      */
     renderNetwork() {
+        // 初始化网络图视图的地图（如果还没有初始化）
+        if (!this.networkMap) {
+            this.initNetworkMap();
+        } else {
+            // 确保地图容器可见
+            const mapContainer = document.getElementById('map-container');
+            if (mapContainer) {
+                mapContainer.style.display = 'block';
+            }
+            // 重新调整地图大小
+            setTimeout(() => {
+                if (this.networkMap) {
+                    this.networkMap.invalidateSize();
+                }
+            }, 100);
+        }
+        
+        // 初始化拓扑图（如果还没有初始化）
+        if (!this.topologyInitialized) {
+            this.initTopologyGraph();
+        }
+        
         if (this.map) {
             this.map.resetView();
+        }
+    }
+
+    /**
+     * 初始化网络图地图
+     */
+    initNetworkMap() {
+        try {
+            // 检查网络图地图容器是否存在
+            const networkMapContainer = document.getElementById('map-container');
+            if (!networkMapContainer) {
+                console.warn('网络图地图容器未找到，跳过网络图地图初始化');
+                return;
+            }
+
+            // 如果已经存在网络图地图实例，先清理
+            if (this.networkMap) {
+                this.networkMap.remove();
+                this.networkMap = null;
+            }
+
+            // 初始化网络图地图
+            this.networkMap = L.map('map-container').setView([31.2304, 121.4737], 8);
+
+            // 添加地图图层
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(this.networkMap);
+
+            console.log('网络图地图初始化完成');
+            
+        } catch (error) {
+            console.error('网络图地图初始化失败:', error);
+            this.showError('网络图地图初始化失败: ' + error.message);
+        }
+    }
+
+    /**
+     * 重置网络图视图
+     */
+    resetMapView() {
+        if (this.networkMap) {
+            this.networkMap.setView([31.2304, 121.4737], 8);
+        }
+        if (this.map) {
+            this.map.setView([31.2304, 121.4737], 8);
+        }
+    }
+
+    /**
+     * 导出网络数据
+     */
+    exportNetwork() {
+        try {
+            if (!this.data || !this.data.network) {
+                this.showError('没有可用的网络数据');
+                return;
+            }
+
+            const networkData = {
+                nodes: this.data.network.nodes || [],
+                routes: this.data.routes?.routes || [],
+                timestamp: new Date().toISOString()
+            };
+
+            const dataStr = JSON.stringify(networkData, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(dataBlob);
+            link.download = `network_data_${new Date().toISOString().slice(0, 10)}.json`;
+            link.click();
+            
+            URL.revokeObjectURL(link.href);
+            this.showSuccess('网络数据导出成功');
+            
+        } catch (error) {
+            console.error('导出网络数据失败:', error);
+            this.showError('导出网络数据失败: ' + error.message);
+        }
+    }
+
+    /**
+     * 初始化拓扑图
+     */
+    initTopologyGraph() {
+        try {
+            const topologyContainer = document.getElementById('topology-graph');
+            if (!topologyContainer) {
+                console.warn('拓扑图容器未找到');
+                return;
+            }
+
+            // 设置容器尺寸
+            topologyContainer.style.width = '100%';
+            topologyContainer.style.height = '400px';
+            
+            // 创建基本的SVG容器
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('width', '100%');
+            svg.setAttribute('height', '100%');
+            svg.style.border = '1px solid #ddd';
+            svg.style.borderRadius = '8px';
+            
+            // 添加标题
+            const title = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            title.setAttribute('x', '50%');
+            title.setAttribute('y', '30');
+            title.setAttribute('text-anchor', 'middle');
+            title.setAttribute('font-size', '16');
+            title.setAttribute('fill', '#333');
+            title.textContent = '网络拓扑图（示例）';
+            svg.appendChild(title);
+            
+            // 添加一些示例节点
+            const nodes = [
+                { x: 100, y: 100, label: '上海' },
+                { x: 300, y: 100, label: '北京' },
+                { x: 200, y: 200, label: '中转站' },
+                { x: 400, y: 200, label: '广州' }
+            ];
+            
+            // 添加连接线
+            const connections = [
+                [0, 2], [1, 2], [2, 3]
+            ];
+            
+            // 绘制连接线
+            connections.forEach(([from, to]) => {
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', nodes[from].x);
+                line.setAttribute('y1', nodes[from].y);
+                line.setAttribute('x2', nodes[to].x);
+                line.setAttribute('y2', nodes[to].y);
+                line.setAttribute('stroke', '#999');
+                line.setAttribute('stroke-width', '2');
+                svg.appendChild(line);
+            });
+            
+            // 绘制节点
+            nodes.forEach((node, index) => {
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', node.x);
+                circle.setAttribute('cy', node.y);
+                circle.setAttribute('r', '20');
+                circle.setAttribute('fill', index === 2 ? '#4CAF50' : '#2196F3');
+                circle.setAttribute('stroke', '#fff');
+                circle.setAttribute('stroke-width', '2');
+                circle.style.cursor = 'pointer';
+                
+                // 添加节点标签
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', node.x);
+                text.setAttribute('y', node.y + 35);
+                text.setAttribute('text-anchor', 'middle');
+                text.setAttribute('font-size', '12');
+                text.setAttribute('fill', '#333');
+                text.textContent = node.label;
+                
+                svg.appendChild(circle);
+                svg.appendChild(text);
+            });
+            
+            topologyContainer.appendChild(svg);
+            this.topologyInitialized = true;
+            
+            console.log('拓扑图初始化完成');
+            
+        } catch (error) {
+            console.error('拓扑图初始化失败:', error);
+            this.showError('拓扑图初始化失败: ' + error.message);
         }
     }
 
@@ -1429,6 +1808,12 @@ class LogisticsApp {
         if (this.map) {
             this.map.remove();
             this.map = null;
+        }
+        
+        // 销毁网络图地图
+        if (this.networkMap) {
+            this.networkMap.remove();
+            this.networkMap = null;
         }
         
         // 销毁图表
