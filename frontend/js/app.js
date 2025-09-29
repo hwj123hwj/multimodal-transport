@@ -5,7 +5,7 @@
 
 class LogisticsApp {
     constructor() {
-        this.currentView = 'dashboard';
+        this.currentView = null;  // 初始化为null，确保第一次switchView能正确执行
         this.isLoading = false;
         this.data = null;
         this.map = null;
@@ -39,19 +39,13 @@ class LogisticsApp {
         try {
             console.log('初始化物流可视化应用...');
             
-            // Edge浏览器特殊处理 - 强制清理初始状态
-            if (navigator.userAgent.includes('Edg')) {
-                console.log('检测到Edge浏览器，执行强制清理');
-                document.querySelectorAll('.view-container').forEach(container => {
-                    container.style.setProperty('display', 'none', 'important');
-                    container.style.setProperty('visibility', 'hidden', 'important');
-                    container.style.setProperty('opacity', '0', 'important');
-                    container.style.setProperty('position', 'absolute', 'important');
-                    container.style.setProperty('top', '-9999px', 'important');
-                    container.style.setProperty('left', '-9999px', 'important');
-                    container.classList.remove('active');
-                });
-            }
+            // 初始化视图状态 - 清理所有视图容器
+        document.querySelectorAll('.view-container').forEach(container => {
+            container.style.display = 'none';
+            container.style.visibility = 'hidden';
+            container.style.opacity = '0';
+            container.classList.remove('active');
+        });
             
             // 显示加载界面
             this.showLoadingScreen();
@@ -120,27 +114,13 @@ class LogisticsApp {
      * 初始化UI组件
      */
     initUI() {
-        // Edge浏览器特殊处理 - 初始状态强制清理
-        if (navigator.userAgent.includes('Edg')) {
-            console.log('Edge浏览器：初始化时强制清理视图状态');
-            document.querySelectorAll('.view-container').forEach(container => {
-                container.style.setProperty('display', 'none', 'important');
-                container.style.setProperty('visibility', 'hidden', 'important');
-                container.style.setProperty('opacity', '0', 'important');
-                container.style.setProperty('position', 'absolute', 'important');
-                container.style.setProperty('top', '-9999px', 'important');
-                container.style.setProperty('left', '-9999px', 'important');
-                container.style.setProperty('width', '0', 'important');
-                container.style.setProperty('height', '0', 'important');
-                container.style.setProperty('overflow', 'hidden', 'important');
-                container.style.setProperty('z-index', '-9999', 'important');
-                container.classList.remove('active');
-            });
-            
-            // 延迟后显示仪表板
-            setTimeout(() => {
-                this.renderDashboard();
-            }, 100);
+        // 初始化UI组件 - 确保视图状态正确
+        // 使用switchView来正确激活仪表板视图，而不是直接调用renderDashboard
+        this.switchView('dashboard');
+        
+        // 更新统计信息
+        if (this.data) {
+            this.updateStatistics();
         }
         
         // 初始化导航
@@ -297,18 +277,41 @@ class LogisticsApp {
                 return;
             }
 
+            // 检查容器是否有有效尺寸
+            const containerRect = mapContainer.getBoundingClientRect();
+            if (containerRect.width === 0 || containerRect.height === 0) {
+                console.warn('地图容器尺寸无效，延迟初始化:', containerRect);
+                // 延迟100ms后重试
+                setTimeout(() => this.initMap(), 100);
+                return;
+            }
+
             // 清理现有地图实例
             if (this.map) {
                 this.map.remove();
                 this.map = null;
             }
 
+            // 确保容器可见
+            mapContainer.style.display = 'block';
+            mapContainer.style.visibility = 'visible';
+            mapContainer.style.opacity = '1';
+
             // 初始化地图
-            this.map = L.map('network-map').setView([31.2304, 121.4737], 8);
+            this.map = L.map('network-map', {
+                zoomControl: true,
+                attributionControl: true,
+                fadeAnimation: true,
+                zoomAnimation: true,
+                markerZoomAnimation: true
+            }).setView([31.2304, 121.4737], 8);
 
             // 添加地图图层
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap contributors'
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 18,
+                tileSize: 512,
+                zoomOffset: -1
             }).addTo(this.map);
 
             // 添加地图控件
@@ -316,10 +319,26 @@ class LogisticsApp {
 
             // 绑定地图事件
             this.bindMapEvents();
+
+            // 延迟调整地图大小以确保正确渲染
+            setTimeout(() => {
+                if (this.map) {
+                    this.map.invalidateSize();
+                    console.log('地图尺寸已调整');
+                }
+            }, 200);
             
         } catch (error) {
             console.error('地图初始化失败:', error);
             this.showError('地图初始化失败: ' + error.message);
+            
+            // 如果初始化失败，延迟后重试一次
+            setTimeout(() => {
+                if (!this.map) {
+                    console.log('重试地图初始化...');
+                    this.initMap();
+                }
+            }, 500);
         }
     }
 
@@ -923,37 +942,7 @@ class LogisticsApp {
      * 清理视图内容
      */
     async cleanupView(viewName) {
-        // Edge浏览器特殊处理 - 强制深度清理
-        if (navigator.userAgent.includes('Edg')) {
-            console.log('Edge浏览器：执行深度视图清理');
-            
-            // 强制隐藏所有视图容器 - 使用多种方式确保完全隐藏
-            document.querySelectorAll('.view-container').forEach((container, index) => {
-                // 使用setProperty来确保!important优先级
-                container.style.setProperty('display', 'none', 'important');
-                container.style.setProperty('visibility', 'hidden', 'important');
-                container.style.setProperty('opacity', '0', 'important');
-                container.style.setProperty('position', 'absolute', 'important');
-                container.style.setProperty('top', '-9999px', 'important');
-                container.style.setProperty('left', '-9999px', 'important');
-                container.style.setProperty('width', '0', 'important');
-                container.style.setProperty('height', '0', 'important');
-                container.style.setProperty('overflow', 'hidden', 'important');
-                
-                // 移除active类
-                container.classList.remove('active');
-                
-                // 强制重绘
-                container.offsetHeight;
-            });
-            
-            // 延迟确保清理完成
-            await new Promise(resolve => setTimeout(resolve, 100));
-            console.log('Edge浏览器：深度清理完成');
-            return;
-        }
-        
-        // 普通浏览器的清理逻辑
+        // 清理所有视图容器
         document.querySelectorAll('.view-container').forEach(container => {
             container.style.display = 'none';
             container.classList.remove('active');
@@ -1002,23 +991,10 @@ class LogisticsApp {
         // 显示目标视图
         const targetView = document.getElementById(`${viewName}-view`);
         if (targetView) {
-            // Edge浏览器特殊处理 - 强制重置样式
-            if (navigator.userAgent.includes('Edg')) {
-                console.log('Edge浏览器：强制显示目标视图');
-                targetView.style.setProperty('display', 'block', 'important');
-                targetView.style.setProperty('visibility', 'visible', 'important');
-                targetView.style.setProperty('opacity', '1', 'important');
-                targetView.style.setProperty('position', 'relative', 'important');
-                targetView.style.setProperty('top', '0', 'important');
-                targetView.style.setProperty('left', '0', 'important');
-                targetView.style.setProperty('width', 'auto', 'important');
-                targetView.style.setProperty('height', 'auto', 'important');
-                targetView.style.setProperty('overflow', 'visible', 'important');
-            } else {
-                targetView.style.display = 'block';
-                targetView.style.visibility = 'visible';
-                targetView.style.opacity = '1';
-            }
+            // 统一的视图显示处理
+            targetView.style.display = 'block';
+            targetView.style.visibility = 'visible';
+            targetView.style.opacity = '1';
             targetView.classList.add('active');
             console.log(`显示视图: ${viewName}-view`);
         }
@@ -1061,20 +1037,6 @@ class LogisticsApp {
         // 确保仪表板视图容器正确显示
         const dashboardView = document.getElementById('dashboard-view');
         if (dashboardView) {
-            // Edge浏览器特殊处理
-            if (navigator.userAgent.includes('Edg')) {
-                dashboardView.style.setProperty('display', 'block', 'important');
-                dashboardView.style.setProperty('visibility', 'visible', 'important');
-                dashboardView.style.setProperty('opacity', '1', 'important');
-                dashboardView.style.setProperty('position', 'relative', 'important');
-                dashboardView.style.setProperty('top', '0', 'important');
-                dashboardView.style.setProperty('left', '0', 'important');
-                dashboardView.style.setProperty('width', 'auto', 'important');
-                dashboardView.style.setProperty('height', 'auto', 'important');
-                dashboardView.style.setProperty('overflow', 'visible', 'important');
-                dashboardView.style.setProperty('z-index', 'auto', 'important');
-            }
-            
             // 确保active类存在
             dashboardView.classList.add('active');
             
@@ -1084,21 +1046,126 @@ class LogisticsApp {
         
         // 更新所有仪表板组件
         this.updateDashboardComponents();
+        
+        // 确保地图正确初始化 - 延迟执行以确保DOM完全就绪
+        setTimeout(() => {
+            if (!this.map) {
+                console.log('延迟初始化地图...');
+                this.initMap();
+            } else {
+                // 如果地图已存在，确保其正确显示
+                this.map.invalidateSize();
+            }
+            
+            // 额外的地图显示确保机制
+            setTimeout(() => {
+                this.fixMapDisplay();
+                
+                // 如果仍然没有地图，强制重新初始化
+                if (!this.map) {
+                    console.log('强制重新初始化地图...');
+                    this.initMap();
+                }
+            }, 1000);
+        }, 800);
     }
     
+    /**
+     * 修复地图显示问题
+     */
+    fixMapDisplay() {
+        if (!this.map) return;
+        
+        console.log('开始修复地图显示...');
+        
+        // 获取地图容器
+        const mapContainer = document.getElementById('network-map');
+        if (!mapContainer) return;
+        
+        // 强制设置容器样式
+        mapContainer.style.display = 'block';
+        mapContainer.style.visibility = 'visible';
+        mapContainer.style.opacity = '1';
+        mapContainer.style.width = '100%';
+        mapContainer.style.height = '500px';
+        mapContainer.style.minHeight = '400px';
+        mapContainer.style.position = 'relative';
+        mapContainer.style.overflow = 'hidden';
+        
+        // 多次调整地图尺寸
+        let retryCount = 0;
+        const maxRetries = 5;
+        
+        const adjustMapSize = () => {
+            if (this.map && retryCount < maxRetries) {
+                retryCount++;
+                console.log(`第${retryCount}次调整地图尺寸...`);
+                
+                // 调整尺寸
+                this.map.invalidateSize();
+                
+                // 检查地图图层是否加载
+                const hasTiles = mapContainer.querySelector('.leaflet-tile-container');
+                const hasLayers = mapContainer.querySelector('.leaflet-layer');
+                
+                if (hasTiles && hasLayers) {
+                    console.log('地图图层已正确加载');
+                    return;
+                }
+                
+                // 继续重试
+                setTimeout(adjustMapSize, 200 * retryCount);
+            }
+        };
+        
+        // 开始调整
+        setTimeout(adjustMapSize, 100);
+        
+        // 最终检查
+        setTimeout(() => {
+            if (this.map) {
+                this.map.invalidateSize();
+                this.map.setView([31.2304, 121.4737], 8);
+                console.log('地图显示修复完成');
+            }
+        }, 1500);
+    }
+
     /**
      * 更新仪表板组件
      */
     updateDashboardComponents() {
         // 更新统计卡片
-        this.updateStatsCards();
+        this.updateStatistics();
         
         // 更新表格
         this.updateTables();
         
-        // 更新地图
+        // 更新地图 - 多重确保地图正确显示
         if (this.map) {
+            // 立即调整尺寸
             this.map.invalidateSize();
+            
+            // 延迟再次调整，确保渲染完成
+            setTimeout(() => {
+                if (this.map) {
+                    this.map.invalidateSize();
+                    console.log('地图尺寸二次调整完成');
+                }
+            }, 300);
+            
+            // 再延迟一次，确保完全加载
+        setTimeout(() => {
+            if (this.map) {
+                this.map.invalidateSize();
+                // 强制重新设置视图
+                this.map.setView([31.2304, 121.4737], 8);
+                console.log('地图最终调整完成');
+                
+                // 调用专门的地图修复函数
+                this.fixMapDisplay();
+            }
+        }, 600);
         }
         
         console.log('仪表板组件更新完成');
@@ -1108,31 +1175,52 @@ class LogisticsApp {
      * 渲染网络视图
      */
     renderNetwork() {
+        console.log('开始渲染网络视图...');
+        
+        // 确保网络视图容器正确显示
+        const networkView = document.getElementById('network-view');
+        if (networkView) {
+            networkView.classList.add('active');
+            networkView.style.display = 'block';
+            networkView.style.visibility = 'visible';
+            networkView.style.opacity = '1';
+            
+            // 触发重绘确保样式生效
+            networkView.offsetHeight;
+            console.log('网络视图容器已激活');
+        }
+        
         // 初始化网络图视图的地图（如果还没有初始化）
         if (!this.networkMap) {
+            console.log('初始化网络图地图...');
             this.initNetworkMap();
         } else {
             // 确保地图容器可见
             const mapContainer = document.getElementById('map-container');
             if (mapContainer) {
                 mapContainer.style.display = 'block';
+                console.log('网络图地图容器已显示');
             }
-            // 重新调整地图大小
+            // 延迟调整地图大小，确保渲染完成
             setTimeout(() => {
                 if (this.networkMap) {
                     this.networkMap.invalidateSize();
+                    console.log('网络图地图尺寸已调整');
                 }
-            }, 100);
+            }, 300);
         }
         
         // 初始化拓扑图（如果还没有初始化）
         if (!this.topologyInitialized) {
+            console.log('初始化拓扑图...');
             this.initTopologyGraph();
         }
         
         if (this.map) {
             this.map.resetView();
         }
+        
+        console.log('网络视图渲染完成');
     }
 
     /**
@@ -1173,11 +1261,30 @@ class LogisticsApp {
      * 重置网络图视图
      */
     resetMapView() {
-        if (this.networkMap) {
-            this.networkMap.setView([31.2304, 121.4737], 8);
-        }
-        if (this.map) {
-            this.map.setView([31.2304, 121.4737], 8);
+        try {
+            // 显示按钮点击反馈
+            this.showButtonFeedback('重置视图');
+            
+            // 重置网络图地图视图
+            if (this.networkMap) {
+                this.networkMap.setView([31.2304, 121.4737], 8);
+                console.log('网络图视图已重置');
+            } else {
+                // 如果网络图地图不存在，尝试初始化
+                console.log('网络图地图不存在，尝试初始化...');
+                this.initNetworkMap();
+            }
+            
+            // 重置仪表板地图视图（如果存在）
+            if (this.map) {
+                this.map.setView([31.2304, 121.4737], 8);
+                console.log('仪表板地图视图已重置');
+            }
+            
+            this.showSuccess('地图视图已重置');
+        } catch (error) {
+            console.error('重置地图视图失败:', error);
+            this.showError('重置地图视图失败: ' + error.message);
         }
     }
 
@@ -1186,15 +1293,58 @@ class LogisticsApp {
      */
     exportNetwork() {
         try {
+            // 显示按钮点击反馈
+            this.showButtonFeedback('导出网络');
+            
+            // 检查是否有网络数据
             if (!this.data || !this.data.network) {
-                this.showError('没有可用的网络数据');
+                // 如果没有网络数据，尝试导出当前视图的基本信息
+                console.log('没有网络数据，准备导出基础网络信息...');
+                
+                const basicNetworkData = {
+                    metadata: {
+                        exportTime: new Date().toISOString(),
+                        type: 'basic_network_export',
+                        description: '基础网络数据导出'
+                    },
+                    // 使用拓扑图的节点作为备选数据
+                    topologyNodes: this.getTopologyNodes() || [],
+                    routes: this.data?.routes?.routes || [],
+                    statistics: {
+                        totalNodes: (this.getTopologyNodes() || []).length,
+                        totalRoutes: (this.data?.routes?.routes || []).length,
+                        hasNetworkData: !!(this.data && this.data.network)
+                    }
+                };
+
+                const dataStr = JSON.stringify(basicNetworkData, null, 2);
+                const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(dataBlob);
+                link.download = `basic_network_${new Date().toISOString().slice(0, 10)}.json`;
+                link.click();
+                
+                URL.revokeObjectURL(link.href);
+                this.showSuccess('基础网络数据导出成功');
                 return;
             }
 
+            // 如果有完整的网络数据，导出完整数据
             const networkData = {
+                metadata: {
+                    exportTime: new Date().toISOString(),
+                    type: 'complete_network_export',
+                    description: '完整网络数据导出'
+                },
                 nodes: this.data.network.nodes || [],
                 routes: this.data.routes?.routes || [],
-                timestamp: new Date().toISOString()
+                statistics: {
+                    totalNodes: (this.data.network.nodes || []).length,
+                    totalRoutes: (this.data.routes?.routes || []).length,
+                    totalCapacity: this.calculateTotalCapacity(),
+                    averageUtilization: this.calculateAverageUtilization()
+                }
             };
 
             const dataStr = JSON.stringify(networkData, null, 2);
@@ -1211,6 +1361,70 @@ class LogisticsApp {
         } catch (error) {
             console.error('导出网络数据失败:', error);
             this.showError('导出网络数据失败: ' + error.message);
+        }
+    }
+
+    /**
+     * 获取拓扑图节点数据
+     */
+    getTopologyNodes() {
+        try {
+            const topologyContainer = document.getElementById('topology-graph');
+            if (!topologyContainer) return [];
+            
+            const circles = topologyContainer.querySelectorAll('circle');
+            const texts = topologyContainer.querySelectorAll('text');
+            
+            const nodes = [];
+            circles.forEach((circle, index) => {
+                const text = texts[index + 1]; // 跳过标题
+                if (text) {
+                    nodes.push({
+                        x: parseFloat(circle.getAttribute('cx')),
+                        y: parseFloat(circle.getAttribute('cy')),
+                        label: text.textContent,
+                        fill: circle.getAttribute('fill')
+                    });
+                }
+            });
+            
+            return nodes;
+        } catch (error) {
+            console.error('获取拓扑图节点失败:', error);
+            return [];
+        }
+    }
+
+    /**
+     * 计算总容量
+     */
+    calculateTotalCapacity() {
+        try {
+            if (!this.data?.network?.nodes) return 0;
+            return this.data.network.nodes.reduce((total, node) => {
+                return total + (node.capacity || 0);
+            }, 0);
+        } catch (error) {
+            console.error('计算总容量失败:', error);
+            return 0;
+        }
+    }
+
+    /**
+     * 计算平均利用率
+     */
+    calculateAverageUtilization() {
+        try {
+            if (!this.data?.routes?.routes || this.data.routes.routes.length === 0) return 0;
+            
+            const totalUtilization = this.data.routes.routes.reduce((total, route) => {
+                return total + (route.utilization || 0);
+            }, 0);
+            
+            return Math.round(totalUtilization / this.data.routes.routes.length);
+        } catch (error) {
+            console.error('计算平均利用率失败:', error);
+            return 0;
         }
     }
 
@@ -1310,17 +1524,58 @@ class LogisticsApp {
      * 渲染匹配视图
      */
     renderMatching() {
+        console.log('开始渲染匹配视图...');
+        
+        // 确保匹配视图容器正确显示
+        const matchingView = document.getElementById('matching-view');
+        if (matchingView) {
+            matchingView.classList.add('active');
+            matchingView.style.display = 'block';
+            matchingView.style.visibility = 'visible';
+            matchingView.style.opacity = '1';
+            
+            // 触发重绘确保样式生效
+            matchingView.offsetHeight;
+            console.log('匹配视图容器已激活');
+        }
+        
+        // 更新匹配表格
         this.updateMatchingTable();
+        
+        console.log('匹配视图渲染完成');
     }
 
     /**
      * 渲染分析视图
      */
     renderAnalytics() {
-        // 重新渲染图表
-        Object.values(this.charts).forEach(chart => {
-            if (chart) chart.resize();
-        });
+        console.log('开始渲染分析视图...');
+        
+        // 确保分析视图容器正确显示
+        const analyticsView = document.getElementById('analytics-view');
+        if (analyticsView) {
+            analyticsView.classList.add('active');
+            analyticsView.style.display = 'block';
+            analyticsView.style.visibility = 'visible';
+            analyticsView.style.opacity = '1';
+            
+            // 触发重绘确保样式生效
+            analyticsView.offsetHeight;
+            console.log('分析视图容器已激活');
+        }
+        
+        // 延迟重新渲染图表，确保容器完全显示
+        setTimeout(() => {
+            console.log('重新渲染图表...');
+            Object.values(this.charts).forEach(chart => {
+                if (chart) {
+                    chart.resize();
+                    console.log('图表已调整大小');
+                }
+            });
+        }, 300);
+        
+        console.log('分析视图渲染完成');
     }
 
     /**
@@ -1689,6 +1944,48 @@ class LogisticsApp {
      */
     showSuccess(message) {
         this.showNotification(message, 'success');
+    }
+
+    /**
+     * 显示按钮点击反馈
+     */
+    showButtonFeedback(buttonName) {
+        const message = `${buttonName} 功能已触发`;
+        
+        // 创建临时反馈提示
+        const feedback = document.createElement('div');
+        feedback.className = 'button-feedback';
+        feedback.innerHTML = `
+            <div class="feedback-content">
+                <span class="feedback-icon">✓</span>
+                <span class="feedback-text">${message}</span>
+            </div>
+        `;
+        
+        // 添加样式
+        feedback.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(76, 175, 80, 0.9);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-size: 14px;
+            z-index: 10000;
+            animation: feedbackFadeInOut 2s ease-in-out;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        `;
+        
+        document.body.appendChild(feedback);
+        
+        // 2秒后自动移除
+        setTimeout(() => {
+            if (feedback.parentElement) {
+                feedback.remove();
+            }
+        }, 2000);
     }
 
     /**
