@@ -4,9 +4,9 @@
 """
 from fastapi import APIRouter, HTTPException
 
+from ..config import get_data_dir
 from ..services.data_loader import DataLoader
 from ..services.data_service import DataService
-from ..config import get_data_dir
 
 # 创建路由实例
 router = APIRouter(prefix="/api", tags=["data"])

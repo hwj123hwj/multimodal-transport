@@ -3,11 +3,12 @@
 提供货物搜索和路线筛选的REST API接口
 """
 from typing import Optional
+
 from fastapi import APIRouter, HTTPException, Query
 
+from ..config import get_data_dir
 from ..services.data_loader import DataLoader
 from ..services.data_service import DataService
-from ..config import get_data_dir
 
 # 创建路由实例
 router = APIRouter(prefix="/api", tags=["query"])

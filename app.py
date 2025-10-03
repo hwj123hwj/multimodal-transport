@@ -46,18 +46,6 @@ app.add_middleware(
 
 logger.info("✅ CORS中间件配置完成")
 
-
-# 健康检查接口
-@app.get("/")
-async def root():
-    logger.info("📡 收到根路径请求")
-    return {
-        "message": "多式联运稳定匹配系统后端服务",
-        "version": "0.1.0",
-        "status": "running"
-    }
-
-
 # 健康检查接口
 @app.get("/health")
 async def health_check():

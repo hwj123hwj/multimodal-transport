@@ -14,7 +14,6 @@ class Shipment:
     destination_node: int  # 对应CSV中的"destination"
     demand: int  # 对应CSV中的"Demand" (TEU)
     time_value: int  # 对应CSV中的"Time value(CNY/TEU)"
-    classification: int = -1  # 对应CSV中的"Classification" (冗余字段，默认为-1)
 
     def __post_init__(self):
         """数据验证和后处理"""
@@ -55,27 +54,6 @@ class Shipment:
         """估算体积（基于TEU转换，1TEU约等于33立方米）"""
         return self.demand * 33.0  # 立方米
 
-    @property
-    def priority(self) -> int:
-        """基于时间价值计算优先级（1-4级）"""
-        if self.time_value >= 2500:
-            return 4  # 最高优先级
-        elif self.time_value >= 1700:
-            return 3  # 高优先级
-        elif self.time_value >= 500:
-            return 2  # 中等优先级
-        else:
-            return 1  # 低优先级
-
-    def get_priority_name(self) -> str:
-        """获取优先级名称"""
-        priority_names = {
-            1: "低优先级",
-            2: "中等优先级",
-            3: "高优先级",
-            4: "最高优先级"
-        }
-        return priority_names.get(self.priority, "未知优先级")
 
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典格式"""
@@ -85,11 +63,8 @@ class Shipment:
             'destination_node': self.destination_node,
             'demand': self.demand,
             'time_value': self.time_value,
-            'classification': self.classification,
             'weight': self.weight,
             'volume': self.volume,
-            'priority': self.priority,
-            'priority_name': self.get_priority_name(),
         }
 
     @classmethod
@@ -111,7 +86,6 @@ class Shipment:
                                 ''))
 
         demand = int(row.get('Demand', 0))
-        classification = int(row.get('Classification', '-1'))
         time_value = int(row.get('Time value(CNY/TEU)', 0))
 
         return cls(
@@ -119,7 +93,6 @@ class Shipment:
             origin_node=origin_node,
             destination_node=destination_node,
             demand=demand,
-            classification=classification,
             time_value=time_value
         )
 
@@ -152,10 +125,6 @@ class ShipmentCollection:
         """按目标节点获取货物"""
         return [s for s in self.shipments.values() if s.destination_node == destination_node]
 
-    def get_high_priority_shipments(self) -> List[Shipment]:
-        """获取高优先级货物（优先级>=3）"""
-        return [s for s in self.shipments.values() if s.priority >= 3]
-
     def get_statistics(self) -> Dict[str, Any]:
         """获取统计信息"""
         if not self.shipments:
@@ -169,12 +138,6 @@ class ShipmentCollection:
             'total_weight': sum(s.weight for s in shipments),
             'total_volume': sum(s.volume for s in shipments),
             'average_time_value': sum(s.time_value for s in shipments) / len(shipments),
-            'priority_distribution': {
-                'priority_1': len([s for s in shipments if s.priority == 1]),
-                'priority_2': len([s for s in shipments if s.priority == 2]),
-                'priority_3': len([s for s in shipments if s.priority == 3]),
-                'priority_4': len([s for s in shipments if s.priority == 4])
-            },
             'origin_distribution': {
                 str(origin): len(self.get_shipments_by_origin(origin))
                 for origin in set(s.origin_node for s in shipments)
