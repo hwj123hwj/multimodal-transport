@@ -1,0 +1,442 @@
+/* 匹配结果页面样式 */
+.matching-page {
+  padding: 24px;
+  background: #f0f2f5;
+  min-height: 100vh;
+}
+
+.matching-page .ant-card {
+  margin-bottom: 16px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.matching-page .ant-card:last-child {
+  margin-bottom: 0;
+}
+
+/* 统计卡片样式 */
+.matching-page .ant-statistic {
+  text-align: center;
+}
+
+.matching-page .ant-statistic-title {
+  color: #666;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.matching-page .ant-statistic-content {
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.matching-page .ant-statistic-content-prefix {
+  margin-right: 4px;
+}
+
+.matching-page .ant-statistic-content-suffix {
+  margin-left: 4px;
+  font-size: 16px;
+  color: #999;
+}
+
+/* 工具栏样式 */
+.matching-page .ant-card-head {
+  background: #fafafa;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.matching-page .ant-card-head-title {
+  font-weight: 600;
+  font-size: 16px;
+  color: #333;
+}
+
+/* 地图容器样式 */
+.matching-page .map-container {
+  height: 100%;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* 匹配详情样式 */
+.matching-page .matching-detail {
+  background: #fafafa;
+  border-radius: 8px;
+  padding: 16px;
+  margin-top: 16px;
+}
+
+.matching-page .matching-detail h4 {
+  color: #333;
+  margin-bottom: 12px;
+  font-size: 16px;
+}
+
+.matching-page .matching-detail .detail-section {
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.matching-page .matching-detail .detail-section:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.matching-page .matching-detail .detail-title {
+  color: #666;
+  font-size: 14px;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.matching-page .matching-detail .detail-item {
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.matching-page .matching-detail .detail-item:last-child {
+  margin-bottom: 0;
+}
+
+.matching-page .matching-detail .detail-label {
+  color: #666;
+  font-size: 13px;
+}
+
+.matching-page .matching-detail .detail-value {
+  color: #333;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* 匹配状态标签样式 */
+.matching-page .match-status-tag {
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.matching-page .match-status-tag.perfect {
+  background: #f6ffed;
+  color: #52c41a;
+  border-color: #b7eb8f;
+}
+
+.matching-page .match-status-tag.good {
+  background: #e6f7ff;
+  color: #1890ff;
+  border-color: #91d5ff;
+}
+
+.matching-page .match-status-tag.fair {
+  background: #fff7e6;
+  color: #fa8c16;
+  border-color: #ffd591;
+}
+
+.matching-page .match-status-tag.poor {
+  background: #fff1f0;
+  color: #ff4d4f;
+  border-color: #ffa39e;
+}
+
+/* 匹配得分样式 */
+.matching-page .match-score {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 14px;
+  color: #fff;
+}
+
+.matching-page .match-score.perfect {
+  background: #52c41a;
+}
+
+.matching-page .match-score.good {
+  background: #1890ff;
+}
+
+.matching-page .match-score.fair {
+  background: #fa8c16;
+}
+
+.matching-page .match-score.poor {
+  background: #ff4d4f;
+}
+
+/* 匹配指标样式 */
+.matching-page .match-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.matching-page .match-metric {
+  background: #fff;
+  border-radius: 6px;
+  padding: 12px;
+  text-align: center;
+  border: 1px solid #f0f0f0;
+}
+
+.matching-page .match-metric .metric-label {
+  color: #666;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.matching-page .match-metric .metric-value {
+  color: #333;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* 表格操作按钮样式 */
+.matching-page .action-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.matching-page .action-buttons .ant-btn {
+  font-size: 12px;
+  padding: 4px 8px;
+  height: 24px;
+}
+
+/* 路线和货物信息样式 */
+.matching-page .route-info,
+.matching-page .shipment-info {
+  background: #fff;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 12px;
+  border: 1px solid #f0f0f0;
+}
+
+.matching-page .route-info:last-child,
+.matching-page .shipment-info:last-child {
+  margin-bottom: 0;
+}
+
+.matching-page .route-info .info-header,
+.matching-page .shipment-info .info-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.matching-page .route-info .info-title,
+.matching-page .shipment-info .info-title {
+  color: #333;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.matching-page .route-info .info-content,
+.matching-page .shipment-info .info-content {
+  color: #666;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* 响应式布局 */
+@media (max-width: 768px) {
+  .matching-page {
+    padding: 16px;
+  }
+  
+  .matching-page .ant-card {
+    margin-bottom: 12px;
+  }
+  
+  .matching-page .ant-statistic-content {
+    font-size: 24px;
+  }
+  
+  .matching-page .ant-card-body {
+    padding: 16px;
+  }
+  
+  .matching-page .map-container {
+    height: 400px;
+  }
+  
+  .matching-page .matching-detail {
+    padding: 12px;
+  }
+  
+  .matching-page .match-metrics {
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 8px;
+  }
+  
+  .matching-page .match-metric {
+    padding: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .matching-page {
+    padding: 12px;
+  }
+  
+  .matching-page .ant-statistic-content {
+    font-size: 20px;
+  }
+  
+  .matching-page .ant-card-body {
+    padding: 12px;
+  }
+  
+  .matching-page .map-container {
+    height: 300px;
+  }
+  
+  .matching-page .matching-detail {
+    padding: 12px;
+  }
+  
+  .matching-page .match-metrics {
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  
+  .matching-page .match-metric {
+    padding: 6px;
+  }
+  
+  .matching-page .match-score {
+    width: 36px;
+    height: 36px;
+    font-size: 12px;
+  }
+}
+
+/* 动画效果 */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.matching-page .ant-card {
+  animation: fadeInUp 0.3s ease-out;
+}
+
+/* 加载状态样式 */
+.matching-page .loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  border-radius: 8px;
+}
+
+/* 空状态样式 */
+.matching-page .empty-state {
+  text-align: center;
+  padding: 48px 24px;
+  color: #999;
+}
+
+.matching-page .empty-state .anticon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  color: #d9d9d9;
+}
+
+.matching-page .empty-state h3 {
+  color: #666;
+  margin-bottom: 8px;
+  font-size: 16px;
+}
+
+.matching-page .empty-state p {
+  color: #999;
+  font-size: 14px;
+}
+
+/* 错误状态样式 */
+.matching-page .error-state {
+  text-align: center;
+  padding: 48px 24px;
+  color: #ff4d4f;
+}
+
+.matching-page .error-state .anticon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.matching-page .error-state h3 {
+  color: #ff4d4f;
+  margin-bottom: 8px;
+  font-size: 16px;
+}
+
+.matching-page .error-state p {
+  color: #ff7875;
+  font-size: 14px;
+}
+
+/* 工具提示样式 */
+.matching-page .ant-tooltip-inner {
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+/* 分页样式 */
+.matching-page .ant-pagination {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* 导出按钮样式 */
+.matching-page .export-button {
+  background: #52c41a;
+  border-color: #52c41a;
+}
+
+.matching-page .export-button:hover {
+  background: #73d13d;
+  border-color: #73d13d;
+}
+
+/* 刷新按钮样式 */
+.matching-page .refresh-button {
+  background: #1890ff;
+  border-color: #1890ff;
+}
+
+.matching-page .refresh-button:hover {
+  background: #40a9ff;
+  border-color: #40a9ff;
+}

@@ -1,0 +1,301 @@
+/* 数据表格组件样式 */
+.data-table {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.data-table-title {
+  padding: 16px 24px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  border-bottom: 1px solid #f0f0f0;
+  background: #fafafa;
+}
+
+.data-table-toolbar {
+  padding: 16px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.data-table-stats {
+  font-size: 12px;
+  color: #666;
+  white-space: nowrap;
+}
+
+.data-table-content {
+  width: 100%;
+}
+
+.data-table-content .ant-table-thead > tr > th {
+  background: #fafafa;
+  font-weight: 600;
+  color: #333;
+  border-bottom: 1px solid #f0f0f0;
+  padding: 12px 16px;
+}
+
+.data-table-content .ant-table-tbody > tr > td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.data-table-content .ant-table-tbody > tr:hover {
+  background: #fafafa;
+}
+
+.data-table-content .ant-table-tbody > tr.ant-table-row-selected {
+  background: #e6f7ff;
+}
+
+.data-table-content .ant-table-tbody > tr.ant-table-row-selected:hover {
+  background: #bae7ff;
+}
+
+/* 表格操作按钮样式 */
+.data-table-content .ant-table-tbody .ant-btn {
+  margin-right: 8px;
+  margin-bottom: 4px;
+}
+
+.data-table-content .ant-table-tbody .ant-btn:last-child {
+  margin-right: 0;
+}
+
+/* 表格标签样式 */
+.data-table-content .ant-tag {
+  margin: 0;
+  font-size: 12px;
+}
+
+/* 表格空状态样式 */
+.data-table-content .ant-empty {
+  padding: 48px 0;
+}
+
+.data-table-content .ant-empty-description {
+  color: #999;
+  font-size: 14px;
+}
+
+/* 表格加载状态样式 */
+.data-table-content .ant-spin-nested-loading {
+  min-height: 200px;
+}
+
+.data-table-content .ant-spin-container {
+  position: relative;
+  transition: opacity 0.3s;
+}
+
+/* 表格分页样式 */
+.data-table-content .ant-pagination {
+  margin: 16px 0;
+  padding: 0 24px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.data-table-content .ant-pagination-item {
+  border-radius: 4px;
+}
+
+.data-table-content .ant-pagination-item-active {
+  background: #1890ff;
+  border-color: #1890ff;
+}
+
+/* 表格筛选样式 */
+.data-table-content .ant-table-filter-trigger {
+  color: #bfbfbf;
+  font-size: 12px;
+}
+
+.data-table-content .ant-table-filter-trigger.active {
+  color: #1890ff;
+}
+
+.data-table-content .ant-table-filter-dropdown {
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* 表格排序样式 */
+.data-table-content .ant-table-column-sorter {
+  color: #bfbfbf;
+}
+
+.data-table-content .ant-table-column-sorter-up.active,
+.data-table-content .ant-table-column-sorter-down.active {
+  color: #1890ff;
+}
+
+/* 表格选择框样式 */
+.data-table-content .ant-table-selection {
+  padding: 0 8px;
+}
+
+.data-table-content .ant-checkbox-wrapper {
+  font-size: 14px;
+}
+
+/* 表格展开行样式 */
+.data-table-content .ant-table-row-expand-icon {
+  border-radius: 4px;
+}
+
+.data-table-content .ant-table-row-expand-icon:hover {
+  border-color: #1890ff;
+  color: #1890ff;
+}
+
+/* 响应式表格样式 */
+@media (max-width: 768px) {
+  .data-table-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .data-table-stats {
+    align-self: flex-end;
+  }
+  
+  .data-table-content .ant-table-thead > tr > th,
+  .data-table-content .ant-table-tbody > tr > td {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+  
+  .data-table-content .ant-pagination {
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .data-table-title {
+    padding: 12px 16px;
+    font-size: 14px;
+  }
+  
+  .data-table-toolbar {
+    padding: 12px 16px;
+  }
+  
+  .data-table-content .ant-table-thead > tr > th,
+  .data-table-content .ant-table-tbody > tr > td {
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+  
+  .data-table-content .ant-table-selection {
+    padding: 0 4px;
+  }
+}
+
+/* 紧凑模式样式 */
+.data-table-compact .data-table-title {
+  padding: 12px 16px;
+  font-size: 14px;
+}
+
+.data-table-compact .data-table-toolbar {
+  padding: 12px 16px;
+}
+
+.data-table-compact .data-table-content .ant-table-thead > tr > th,
+.data-table-compact .data-table-content .ant-table-tbody > tr > td {
+  padding: 8px 12px;
+}
+
+/* 斑马纹样式 */
+.data-table-striped .ant-table-tbody > tr:nth-child(even) {
+  background: #fafafa;
+}
+
+.data-table-striped .ant-table-tbody > tr:nth-child(even):hover {
+  background: #f5f5f5;
+}
+
+/* 边框样式 */
+.data-table-bordered {
+  border: 1px solid #f0f0f0;
+}
+
+.data-table-bordered .data-table-content .ant-table {
+  border: 1px solid #f0f0f0;
+}
+
+.data-table-bordered .data-table-content .ant-table-thead > tr > th {
+  border-right: 1px solid #f0f0f0;
+}
+
+.data-table-bordered .data-table-content .ant-table-tbody > tr > td {
+  border-right: 1px solid #f0f0f0;
+}
+
+/* 悬停效果增强 */
+.data-table-hover .data-table-content .ant-table-tbody > tr {
+  transition: all 0.3s ease;
+}
+
+.data-table-hover .data-table-content .ant-table-tbody > tr:hover {
+  background: #f0f9ff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+}
+
+/* 动画效果 */
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.data-table {
+  animation: slideInUp 0.3s ease-out;
+}
+
+/* 打印样式 */
+@media print {
+  .data-table-toolbar {
+    display: none;
+  }
+  
+  .data-table-content .ant-pagination {
+    display: none;
+  }
+  
+  .data-table-content .ant-table-thead > tr > th {
+    background: #f5f5f5 !important;
+    color: #000 !important;
+    border: 1px solid #ddd !important;
+  }
+  
+  .data-table-content .ant-table-tbody > tr > td {
+    border: 1px solid #ddd !important;
+  }
+  
+  .data-table-content .ant-table-row-expand-icon {
+    display: none;
+  }
+  
+  .data-table-content .ant-table-selection {
+    display: none;
+  }
+}
