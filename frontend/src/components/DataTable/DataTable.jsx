@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Table, Button, Space, Input, Select, message } from 'antd';
+import React, { useState, useMemo } from 'react';
+import { Table, Button, Space, Input, message } from 'antd';
 import { SearchOutlined, FilterOutlined, ExportOutlined, ReloadOutlined } from '@ant-design/icons';
 import './DataTable.css';
 
 const { Search } = Input;
-const { Option } = Select;
 
 // 分页配置
 const PAGINATION_CONFIG = {
@@ -198,6 +197,7 @@ const DataTable = ({
 
   // 处理选择变化
   const handleSelectionChange = (selectedKeys, selectedRows) => {
+    setSelectedRowKeys(selectedKeys);
     if (onSelectionChange) {
       onSelectionChange(selectedKeys, selectedRows);
     }

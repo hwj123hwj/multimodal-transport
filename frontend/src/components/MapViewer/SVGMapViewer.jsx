@@ -1,9 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Card, Space, Button, Select } from 'antd';
+import { Card, Space, Button } from 'antd';
 import { ReloadOutlined, ExpandOutlined, ShrinkOutlined } from '@ant-design/icons';
 import './MapViewer.css';
-
-const { Option } = Select;
 
 const SVGMapViewer = ({ 
   routes = [], 
@@ -18,7 +16,6 @@ const SVGMapViewer = ({
 }) => {
   const svgRef = useRef(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [mapType, setMapType] = useState('svg');
   const [loading, setLoading] = useState(false);
   const [selectedRoute, setSelectedRoute] = useState(null);
   const [selectedShipment, setSelectedShipment] = useState(null);
@@ -71,9 +68,14 @@ const SVGMapViewer = ({
   }, [chinaMapData.provinces]);
 
   // 获取路线颜色
-  const getRouteColor = useCallback((routeId) => {
-    const colors = ['#1890ff', '#52c41a', '#faad14', '#f5222d', '#722ed1', '#13c2c2'];
-    return colors[routeId % colors.length];
+  const getRouteColor = useCallback((routeType) => {
+    const colors = {
+      highway: '#ff4444',
+      railway: '#4444ff',
+      waterway: '#44ff44',
+      airway: '#ff44ff'
+    };
+    return colors[routeType] || '#666666';
   }, []);
 
   // 绘制路线
@@ -345,7 +347,7 @@ const SVGMapViewer = ({
       default:
         drawRoutes();
     }
-  }, [mode, drawRoutes, drawShipments, drawMatchingResults]);
+  }, [mode, drawRoutes, drawShipments, drawMatchingResults, chinaMapData.provinces]);
 
   // 切换全屏
   const toggleFullscreen = () => {
@@ -381,7 +383,7 @@ const SVGMapViewer = ({
       clearTimeout(timer);
       window.removeEventListener('resize', handleResize);
     };
-  }, []);
+  }, [drawSVGMap]);
 
   // 数据变化时重新绘制
   useEffect(() => {
