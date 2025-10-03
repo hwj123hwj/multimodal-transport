@@ -113,3 +113,29 @@ async def filter_routes_by_capacity(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"按容量筛选路线失败: {str(e)}")
+
+
+@router.get("/routes/{route_id}")
+async def get_route_by_id(route_id: int):
+    """根据路线ID获取单条路线详情
+    
+    Args:
+        route_id: 路线ID
+    """
+    try:
+        route = data_service.get_route_by_id(route_id)
+        
+        if not route:
+            raise HTTPException(
+                status_code=404,
+                detail=f"路线ID {route_id} 不存在"
+            )
+        
+        return {
+            "status": "success",
+            "route": route
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取路线详情失败: {str(e)}")

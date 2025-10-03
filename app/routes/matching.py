@@ -18,7 +18,7 @@ data_service = DataService(data_loader)
 matching_service = MatchingService(data_loader)
 
 
-@router.get("/")
+@router.get("/matchings")
 async def get_all_matchings():
     """获取所有匹配结果"""
     try:

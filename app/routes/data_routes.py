@@ -53,16 +53,3 @@ async def get_routes_data():
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取路线数据失败: {str(e)}")
-
-
-@router.get("/matching-result")
-async def get_matching_result():
-    """获取匹配结果数据"""
-    try:
-        matching_data = data_service.get_matching_results()
-        return {
-            "status": "success",
-            "data": matching_data
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"获取匹配结果失败: {str(e)}")

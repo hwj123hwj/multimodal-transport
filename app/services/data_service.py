@@ -91,13 +91,19 @@ class DataService:
                     "demand": shipment.demand,
                     "weight": shipment.weight,
                     "volume": shipment.volume,
-                    "priority": shipment.priority,
                     "time_value": shipment.time_value
                 })
 
             return {
                 "total_count": stats["total_shipments"],
-                "priority_breakdown": stats.get("priority_distribution", {}),
+                "statistics": {
+                    "total_demand": stats.get("total_demand", 0),
+                    "total_weight": stats.get("total_weight", 0),
+                    "total_volume": stats.get("total_volume", 0),
+                    "average_time_value": stats.get("average_time_value", 0),
+                    "origin_distribution": stats.get("origin_distribution", {}),
+                    "destination_distribution": stats.get("destination_distribution", {})
+                },
                 "shipments": all_shipments
             }
         except Exception as e:
@@ -345,6 +351,27 @@ class DataService:
             return matching_routes
         except Exception as e:
             logger.error(f"按节点筛选路线失败: {str(e)}")
+            raise
+
+    def get_route_by_id(self, route_id: int) -> Optional[Dict[str, Any]]:
+        """根据路线ID获取单条路线详情
+        
+        Args:
+            route_id: 路线ID
+            
+        Returns:
+            Optional[Dict[str, Any]]: 路线详情数据，如果不存在返回None
+        """
+        try:
+            routes_data = self.get_all_routes()
+            
+            for route in routes_data["routes"]:
+                if route["route_id"] == route_id:
+                    return route
+            
+            return None
+        except Exception as e:
+            logger.error(f"根据路线ID获取路线详情失败: {str(e)}")
             raise
 
     def clear_cache(self):
