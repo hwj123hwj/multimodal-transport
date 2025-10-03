@@ -1,13 +1,15 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Card, Space, Button, Select, message } from 'antd';
 import { ReloadOutlined, ExpandOutlined, ShrinkOutlined } from '@ant-design/icons';
 import MapService from '../../services/mapService';
+import SVGMapViewer from './SVGMapViewer';
 import { getRouteColor } from '../../utils/formatters';
 import './MapViewer.css';
 
 const { Option } = Select;
 
-const MapViewer = ({ 
+// 百度地图组件
+const BaiduMapViewer = ({ 
   routes = [], 
   shipments = [], 
   matchings = [],
@@ -24,78 +26,8 @@ const MapViewer = ({
   const [mapType, setMapType] = useState('normal');
   const [loading, setLoading] = useState(false);
 
-  // 初始化地图
-  useEffect(() => {
-    if (!mapContainerRef.current) return;
-
-    // 等待百度地图API加载
-    const checkBMapLoaded = () => {
-      if (typeof window.BMap !== 'undefined') {
-        initializeMap();
-      } else {
-        setTimeout(checkBMapLoaded, 100);
-      }
-    };
-
-    checkBMapLoaded();
-
-    return () => {
-      if (mapServiceRef.current) {
-        mapServiceRef.current.destroy();
-      }
-    };
-  }, []);
-
-  // 初始化地图服务
-  const initializeMap = () => {
-    try {
-      mapServiceRef.current = new MapService('map-container');
-      refreshMapData();
-    } catch (error) {
-      message.error('地图初始化失败，请检查百度地图API配置');
-      console.error('Map initialization error:', error);
-    }
-  };
-
-  // 根据模式刷新地图数据
-  useEffect(() => {
-    if (mapServiceRef.current) {
-      refreshMapData();
-    }
-  }, [routes, shipments, matchings, mode]);
-
-  // 刷新地图数据
-  const refreshMapData = () => {
-    if (!mapServiceRef.current) return;
-
-    setLoading(true);
-    
-    try {
-      mapServiceRef.current.clearOverlays();
-
-      switch (mode) {
-        case 'routes':
-          displayRoutes();
-          break;
-        case 'shipments':
-          displayShipments();
-          break;
-        case 'matching':
-          displayMatchingResults();
-          break;
-        default:
-          displayRoutes();
-      }
-    } catch (error) {
-      message.error('地图数据刷新失败');
-      console.error('Map refresh error:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // 显示路线
-  const displayRoutes = () => {
+  const displayRoutes = useCallback(() => {
     if (!routes || routes.length === 0) return;
 
     routes.forEach(route => {
@@ -115,10 +47,10 @@ const MapViewer = ({
 
     // 自适应显示所有路线
     mapServiceRef.current.fitRoutes(routes);
-  };
+  }, [routes, onRouteClick]);
 
   // 显示货物
-  const displayShipments = () => {
+  const displayShipments = useCallback(() => {
     if (!shipments || shipments.length === 0) return;
 
     shipments.forEach(shipment => {
@@ -130,10 +62,10 @@ const MapViewer = ({
         }
       });
     });
-  };
+  }, [shipments, onShipmentClick]);
 
   // 显示匹配结果
-  const displayMatchingResults = () => {
+  const displayMatchingResults = useCallback(() => {
     if (!matchings || matchings.length === 0) return;
 
     // 显示匹配路线
@@ -179,7 +111,96 @@ const MapViewer = ({
     if (routes && routes.length > 0) {
       mapServiceRef.current.fitRoutes(routes);
     }
-  };
+  }, [routes, shipments, matchings, onRouteClick, onShipmentClick]);
+
+  // 刷新地图数据
+  const refreshMapData = useCallback(() => {
+    if (!mapServiceRef.current) return;
+
+    setLoading(true);
+    
+    try {
+      mapServiceRef.current.clearOverlays();
+
+      switch (mode) {
+        case 'routes':
+          displayRoutes();
+          break;
+        case 'shipments':
+          displayShipments();
+          break;
+        case 'matching':
+          displayMatchingResults();
+          break;
+        default:
+          displayRoutes();
+      }
+    } catch (error) {
+      message.error('地图数据刷新失败');
+      console.error('Map refresh error:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [mode, displayRoutes, displayShipments, displayMatchingResults]);
+
+  // 初始化地图服务
+  const initializeMap = useCallback(() => {
+    try {
+      mapServiceRef.current = new MapService('map-container');
+      refreshMapData();
+    } catch (error) {
+      message.error('地图初始化失败，请检查百度地图API配置');
+      console.error('Map initialization error:', error);
+    }
+  }, [refreshMapData]);
+
+  // 百度地图初始化
+  useEffect(() => {
+    // 等待百度地图API加载完成
+    const checkBMapLoaded = () => {
+      if (typeof window.BMap !== 'undefined' && window.BMap.Map) {
+        // 延迟初始化，确保API完全加载
+        setTimeout(() => {
+          initializeMap();
+        }, 500);
+      } else {
+        // 每500ms检查一次，最多重试20次（10秒）
+        let retryCount = 0;
+        const maxRetries = 20;
+        
+        const retryCheck = () => {
+          retryCount++;
+          if (typeof window.BMap !== 'undefined' && window.BMap.Map) {
+            setTimeout(() => {
+              initializeMap();
+            }, 500);
+          } else if (retryCount < maxRetries) {
+            setTimeout(retryCheck, 500);
+          } else {
+            message.error('百度地图API加载超时，请检查网络连接和API密钥');
+            console.error('Baidu Map API failed to load after maximum retries');
+          }
+        };
+        
+        setTimeout(retryCheck, 500);
+      }
+    };
+
+    checkBMapLoaded();
+
+    return () => {
+      if (mapServiceRef.current) {
+        mapServiceRef.current.destroy();
+      }
+    };
+  }, [initializeMap]);
+
+  // 根据模式刷新地图数据
+  useEffect(() => {
+    if (mapServiceRef.current) {
+      refreshMapData();
+    }
+  }, [routes, shipments, matchings, mode, refreshMapData]);
 
   // 切换全屏
   const toggleFullscreen = () => {
@@ -295,6 +316,52 @@ const MapViewer = ({
         )}
       </Card>
     </div>
+  );
+};
+
+// 主组件
+const MapViewer = ({ 
+  routes = [], 
+  shipments = [], 
+  matchings = [],
+  mode = 'routes',
+  onRouteClick,
+  onShipmentClick,
+  height = '500px',
+  showControls = true,
+  showLegend = true,
+  mapEngine = 'baidu' // 'baidu' 或 'svg'
+}) => {
+  // 如果是SVG地图，直接返回SVG组件
+  if (mapEngine === 'svg') {
+    return (
+      <SVGMapViewer
+        routes={routes}
+        shipments={shipments}
+        matchings={matchings}
+        mode={mode}
+        onRouteClick={onRouteClick}
+        onShipmentClick={onShipmentClick}
+        height={height}
+        showControls={showControls}
+        showLegend={showLegend}
+      />
+    );
+  }
+
+  // 否则返回百度地图组件
+  return (
+    <BaiduMapViewer
+      routes={routes}
+      shipments={shipments}
+      matchings={matchings}
+      mode={mode}
+      onRouteClick={onRouteClick}
+      onShipmentClick={onShipmentClick}
+      height={height}
+      showControls={showControls}
+      showLegend={showLegend}
+    />
   );
 };
 

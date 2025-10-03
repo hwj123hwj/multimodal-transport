@@ -13,6 +13,7 @@ import DashboardPage from './pages/Dashboard/DashboardPage';
 import RoutesPage from './pages/Routes/RoutesPage';
 import ShipmentsPage from './pages/Shipments/ShipmentsPage';
 import MatchingPage from './pages/Matching/MatchingPage';
+import MapTest from './pages/Test/MapTest';
 import './App.css';
 
 const { Header, Sider, Content } = Layout;
@@ -42,6 +43,11 @@ const Navigation = ({ collapsed, setCollapsed }) => {
       key: 'matching',
       icon: <CheckCircleOutlined />,
       label: '匹配结果',
+    },
+    {
+      key: 'maptest',
+      icon: <DashboardOutlined />,
+      label: '地图测试',
     },
   ];
 
@@ -76,7 +82,8 @@ const AppContent = () => {
       dashboard: '仪表板',
       routes: '路线管理',
       shipments: '货物管理',
-      matching: '匹配结果'
+      matching: '匹配结果',
+      maptest: '地图测试'
     };
     return titles[path] || '运输管理系统';
   };
@@ -105,6 +112,7 @@ const AppContent = () => {
             <Route path="/routes" element={<RoutesPage />} />
             <Route path="/shipments" element={<ShipmentsPage />} />
             <Route path="/matching" element={<MatchingPage />} />
+            <Route path="/maptest" element={<MapTest />} />
           </Routes>
         </Content>
       </Layout>

@@ -10,17 +10,32 @@ export class MapService {
 
   // 初始化地图
   initMap() {
-    if (typeof window.BMap === 'undefined') {
-      console.error('百度地图API未加载');
+    if (typeof window.BMap === 'undefined' || !window.BMap.Map) {
+      console.error('百度地图API未加载或加载不完整');
       return;
     }
     
-    this.map = new window.BMap.Map(this.containerId);
-    this.map.centerAndZoom(new window.BMap.Point(106.5, 26.0), 7);
-    this.map.enableScrollWheelZoom(true);
-    this.map.addControl(new window.BMap.NavigationControl());
-    this.map.addControl(new window.BMap.ScaleControl());
-    this.map.addControl(new window.BMap.OverviewMapControl());
+    try {
+      // 创建地图实例
+      this.map = new window.BMap.Map(this.containerId);
+      
+      // 设置地图中心和缩放级别
+      const centerPoint = new window.BMap.Point(106.5, 26.0);
+      this.map.centerAndZoom(centerPoint, 7);
+      
+      // 启用滚轮缩放
+      this.map.enableScrollWheelZoom(true);
+      
+      // 添加地图控件
+      this.map.addControl(new window.BMap.NavigationControl());
+      this.map.addControl(new window.BMap.ScaleControl());
+      this.map.addControl(new window.BMap.OverviewMapControl());
+      
+      console.log('地图初始化成功');
+    } catch (error) {
+      console.error('地图初始化失败:', error);
+      throw new Error('百度地图初始化失败，请检查API密钥和网络连接');
+    }
   }
 
   // 绘制路线

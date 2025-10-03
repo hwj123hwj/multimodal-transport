@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Row, Col, Statistic, Tag, Button, Space, message } from 'antd';
+import { Card, Row, Col, Statistic, Tag, Button, Space, message, Select } from 'antd';
 import { AimOutlined, ExportOutlined, ReloadOutlined } from '@ant-design/icons';
 import MapViewer from '../../components/MapViewer/MapViewer';
 import DataTable from '../../components/DataTable/DataTable';
@@ -7,11 +7,13 @@ import { routesAPI } from '../../services/api';
 import { formatDistance, formatTime, formatCurrency } from '../../utils/formatters';
 import { ROUTE_COLORS } from '../../utils/constants';
 
+const { Option } = Select;
 const RoutesPage = () => {
   const [routes, setRoutes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedRoute, setSelectedRoute] = useState(null);
   const [mapMode, setMapMode] = useState('routes');
+  const [mapEngine, setMapEngine] = useState('baidu'); // 'baidu' 或 'svg'
   const [statistics, setStatistics] = useState({
     totalRoutes: 0,
     totalDistance: 0,
@@ -24,16 +26,21 @@ const RoutesPage = () => {
     try {
       setLoading(true);
       const response = await routesAPI.getAll();
-      const data = response.data;
+      let data = response.data;
+      
+      // 确保data是数组
+      if (!Array.isArray(data)) {
+        data = data?.routes || data?.data || [];
+      }
       
       setRoutes(data);
       
       // 计算统计信息
       const stats = {
         totalRoutes: data.length,
-        totalDistance: data.reduce((sum, route) => sum + route.total_distance, 0),
-        totalDuration: data.reduce((sum, route) => sum + route.total_duration, 0),
-        avgCost: data.length > 0 ? data.reduce((sum, route) => sum + route.total_cost, 0) / data.length : 0
+        totalDistance: data.reduce((sum, route) => sum + (route.total_distance || 0), 0),
+        totalDuration: data.reduce((sum, route) => sum + (route.total_duration || 0), 0),
+        avgCost: data.length > 0 ? data.reduce((sum, route) => sum + (route.total_cost || 0), 0) / data.length : 0
       };
       setStatistics(stats);
       
@@ -41,6 +48,13 @@ const RoutesPage = () => {
     } catch (error) {
       console.error('获取路线数据失败:', error);
       message.error('获取路线数据失败');
+      setRoutes([]);
+      setStatistics({
+        totalRoutes: 0,
+        totalDistance: 0,
+        totalDuration: 0,
+        avgCost: 0
+      });
     } finally {
       setLoading(false);
     }
@@ -65,6 +79,12 @@ const RoutesPage = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // 切换地图引擎
+  const handleMapEngineChange = (engine) => {
+    setMapEngine(engine);
+    message.info(`已切换到${engine === 'baidu' ? '百度地图' : 'SVG地图'}`);
   };
 
   // 处理数据导出
@@ -151,16 +171,21 @@ const RoutesPage = () => {
       dataIndex: 'waypoints',
       key: 'waypoints',
       ellipsis: true,
-      render: (waypoints) => (
-        <Space size="small" wrap>
-          {waypoints.slice(0, 3).map((city, index) => (
-            <Tag key={index} color="blue">{city}</Tag>
-          ))}
-          {waypoints.length > 3 && (
-            <Tag color="default">+{waypoints.length - 3}</Tag>
-          )}
-        </Space>
-      )
+      render: (waypoints) => {
+        if (!waypoints || !Array.isArray(waypoints) || waypoints.length === 0) {
+          return '-';
+        }
+        return (
+          <Space size="small" wrap>
+            {waypoints.slice(0, 3).map((city, index) => (
+              <Tag key={index} color="blue">{city}</Tag>
+            ))}
+            {waypoints.length > 3 && (
+              <Tag color="default">+{waypoints.length - 3}</Tag>
+            )}
+          </Space>
+        );
+      }
     },
     {
       title: '创建时间',
@@ -243,6 +268,15 @@ const RoutesPage = () => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h3 style={{ margin: 0 }}>路线管理</h3>
           <Space>
+            <Select
+              value={mapEngine}
+              onChange={handleMapEngineChange}
+              style={{ width: 120 }}
+              size="small"
+            >
+              <Option value="baidu">百度地图</Option>
+              <Option value="svg">SVG地图</Option>
+            </Select>
             <Button
               type="primary"
               icon={<ReloadOutlined />}
@@ -267,15 +301,16 @@ const RoutesPage = () => {
         <Col xs={24} lg={selectedRoute ? 12 : 24}>
           <Card
             title="路线地图"
-            bodyStyle={{ padding: 0 }}
+            styles={{ body: { padding: 0 } }}
             style={{ height: '600px' }}
           >
             <MapViewer
               mode={mapMode}
-              data={selectedRoute ? [selectedRoute] : routes}
+              routes={selectedRoute ? [selectedRoute] : routes}
               selectedRoute={selectedRoute}
               onRouteSelect={handleRouteSelect}
-              style={{ height: '100%' }}
+              mapEngine={mapEngine}
+              height="100%"
             />
           </Card>
         </Col>

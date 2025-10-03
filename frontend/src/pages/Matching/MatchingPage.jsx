@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Row, Col, Statistic, Tag, Button, Space, message, Progress, Badge } from 'antd';
+import { Card, Row, Col, Statistic, Button, Space, message, Select, Badge, Progress } from 'antd';
 import { CheckCircleOutlined, CloseCircleOutlined, ExportOutlined, ReloadOutlined, AimOutlined } from '@ant-design/icons';
 import MapViewer from '../../components/MapViewer/MapViewer';
 import DataTable from '../../components/DataTable/DataTable';
 import { matchingAPI, routesAPI, shipmentsAPI } from '../../services/api';
 import { formatDistance, formatTime, formatCurrency, formatWeight, formatVolume } from '../../utils/formatters';
-import { MATCHING_STATUS } from '../../utils/constants';
+
+const { Option } = Select;
 
 const MatchingPage = () => {
   const [matchingResults, setMatchingResults] = useState([]);
@@ -14,6 +15,7 @@ const MatchingPage = () => {
   const [loading, setLoading] = useState(true);
   const [selectedResult, setSelectedResult] = useState(null);
   const [mapMode, setMapMode] = useState('matching');
+  const [mapEngine, setMapEngine] = useState('baidu'); // 'baidu' 或 'svg'
   const [statistics, setStatistics] = useState({
     totalMatches: 0,
     successfulMatches: 0,
@@ -33,9 +35,20 @@ const MatchingPage = () => {
         shipmentsAPI.getAll()
       ]);
       
-      const matches = matchingRes.data;
-      const routesData = routesRes.data;
-      const shipmentsData = shipmentsRes.data;
+      let matches = matchingRes.data;
+      let routesData = routesRes.data;
+      let shipmentsData = shipmentsRes.data;
+      
+      // 确保data是数组
+      if (!Array.isArray(matches)) {
+        matches = matches?.matches || matches?.data || [];
+      }
+      if (!Array.isArray(routesData)) {
+        routesData = routesData?.routes || routesData?.data || [];
+      }
+      if (!Array.isArray(shipmentsData)) {
+        shipmentsData = shipmentsData?.shipments || shipmentsData?.data || [];
+      }
       
       setMatchingResults(matches);
       setRoutes(routesData);
@@ -44,9 +57,9 @@ const MatchingPage = () => {
       // 计算统计信息
       const successfulMatches = matches.filter(m => m.match_score > 0.7);
       const avgScore = matches.length > 0 
-        ? matches.reduce((sum, m) => sum + m.match_score, 0) / matches.length 
+        ? matches.reduce((sum, m) => sum + (m.match_score || 0), 0) / matches.length 
         : 0;
-      const totalSavedCost = successfulMatches.reduce((sum, m) => sum + m.saved_cost, 0);
+      const totalSavedCost = successfulMatches.reduce((sum, m) => sum + (m.saved_cost || 0), 0);
       
       const stats = {
         totalMatches: matches.length,
@@ -60,9 +73,24 @@ const MatchingPage = () => {
     } catch (error) {
       console.error('获取匹配数据失败:', error);
       message.error('获取匹配数据失败');
+      setMatchingResults([]);
+      setRoutes([]);
+      setShipments([]);
+      setStatistics({
+        totalMatches: 0,
+        successfulMatches: 0,
+        avgScore: 0,
+        totalSavedCost: 0
+      });
     } finally {
       setLoading(false);
     }
+  };
+
+  // 切换地图引擎
+  const handleMapEngineChange = (engine) => {
+    setMapEngine(engine);
+    message.info(`已切换到${engine === 'baidu' ? '百度地图' : 'SVG地图'}`);
   };
 
   // 处理匹配结果选择
@@ -284,6 +312,15 @@ const MatchingPage = () => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h3 style={{ margin: 0 }}>匹配结果管理</h3>
           <Space>
+            <Select
+              value={mapEngine}
+              onChange={handleMapEngineChange}
+              style={{ width: 120 }}
+              size="small"
+            >
+              <Option value="baidu">百度地图</Option>
+              <Option value="svg">SVG地图</Option>
+            </Select>
             <Button
               type="primary"
               icon={<ReloadOutlined />}
@@ -308,17 +345,18 @@ const MatchingPage = () => {
         <Col xs={24} lg={selectedResult ? 12 : 24}>
           <Card
             title="匹配结果地图"
-            bodyStyle={{ padding: 0 }}
+            styles={{ body: { padding: 0 } }}
             style={{ height: '600px' }}
           >
             <MapViewer
               mode={mapMode}
-              data={selectedResult ? [selectedResult] : matchingResults}
+              matchings={selectedResult ? [selectedResult] : matchingResults}
               routes={routes}
               shipments={shipments}
               selectedResult={selectedResult}
               onResultSelect={handleResultSelect}
-              style={{ height: '100%' }}
+              mapEngine={mapEngine}
+              height="100%"
             />
           </Card>
         </Col>

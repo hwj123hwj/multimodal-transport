@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Row, Col, Statistic, Tag, Button, Space, message, Input, Select } from 'antd';
+import { Card, Row, Col, Statistic, Tag, Button, Space, message, Select, Input } from 'antd';
 import { BoxPlotOutlined, ExportOutlined, ReloadOutlined, SearchOutlined } from '@ant-design/icons';
 import MapViewer from '../../components/MapViewer/MapViewer';
 import DataTable from '../../components/DataTable/DataTable';
@@ -13,6 +13,7 @@ const ShipmentsPage = () => {
   const [loading, setLoading] = useState(true);
   const [selectedShipment, setSelectedShipment] = useState(null);
   const [mapMode, setMapMode] = useState('shipments');
+  const [mapEngine, setMapEngine] = useState('baidu'); // 'baidu' 或 'svg'
   const [searchText, setSearchText] = useState('');
   const [searchType, setSearchType] = useState('all');
   const [statistics, setStatistics] = useState({
@@ -27,16 +28,21 @@ const ShipmentsPage = () => {
     try {
       setLoading(true);
       const response = await shipmentsAPI.getAll();
-      const data = response.data;
+      let data = response.data;
+      
+      // 确保data是数组
+      if (!Array.isArray(data)) {
+        data = data?.shipments || data?.data || [];
+      }
       
       setShipments(data);
       
       // 计算统计信息
       const stats = {
         totalShipments: data.length,
-        totalWeight: data.reduce((sum, shipment) => sum + shipment.weight, 0),
-        totalVolume: data.reduce((sum, shipment) => sum + shipment.volume, 0),
-        totalValue: data.reduce((sum, shipment) => sum + shipment.value, 0)
+        totalWeight: data.reduce((sum, shipment) => sum + (shipment.weight || 0), 0),
+        totalVolume: data.reduce((sum, shipment) => sum + (shipment.volume || 0), 0),
+        totalValue: data.reduce((sum, shipment) => sum + (shipment.value || 0), 0)
       };
       setStatistics(stats);
       
@@ -44,6 +50,13 @@ const ShipmentsPage = () => {
     } catch (error) {
       console.error('获取货物数据失败:', error);
       message.error('获取货物数据失败');
+      setShipments([]);
+      setStatistics({
+        totalShipments: 0,
+        totalWeight: 0,
+        totalVolume: 0,
+        totalValue: 0
+      });
     } finally {
       setLoading(false);
     }
@@ -79,6 +92,12 @@ const ShipmentsPage = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // 切换地图引擎
+  const handleMapEngineChange = (engine) => {
+    setMapEngine(engine);
+    message.info(`已切换到${engine === 'baidu' ? '百度地图' : 'SVG地图'}`);
   };
 
   // 处理货物选择
@@ -301,6 +320,15 @@ const ShipmentsPage = () => {
             <Button type="primary" onClick={handleSearch} icon={<SearchOutlined />}>
               搜索
             </Button>
+            <Select
+              value={mapEngine}
+              onChange={handleMapEngineChange}
+              style={{ width: 120 }}
+              size="small"
+            >
+              <Option value="baidu">百度地图</Option>
+              <Option value="svg">SVG地图</Option>
+            </Select>
             <Button
               icon={<ReloadOutlined />}
               onClick={fetchShipments}
@@ -324,15 +352,16 @@ const ShipmentsPage = () => {
         <Col xs={24} lg={selectedShipment ? 12 : 24}>
           <Card
             title="货物地图"
-            bodyStyle={{ padding: 0 }}
+            styles={{ body: { padding: 0 } }}
             style={{ height: '600px' }}
           >
             <MapViewer
               mode={mapMode}
-              data={selectedShipment ? [selectedShipment] : shipments}
+              shipments={selectedShipment ? [selectedShipment] : shipments}
               selectedShipment={selectedShipment}
               onShipmentSelect={handleShipmentSelect}
-              style={{ height: '100%' }}
+              mapEngine={mapEngine}
+              height="100%"
             />
           </Card>
         </Col>

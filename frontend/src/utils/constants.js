@@ -176,8 +176,8 @@ export const ANIMATION_CONFIG = {
   DELAY: 100
 };
 
-// 导出默认值
-export default {
+// 创建常量对象并导出
+const Constants = {
   API_CONFIG,
   MAP_CONFIG,
   ROUTE_COLORS,
@@ -195,3 +195,5 @@ export default {
   RESPONSIVE_CONFIG,
   ANIMATION_CONFIG
 };
+
+export default Constants;

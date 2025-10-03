@@ -1,13 +1,75 @@
-import React, { useState, useEffect } from 'react';
-import { Table, Input, Button, Space, Select, Tag, message } from 'antd';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Table, Button, Space, Input, Select, message } from 'antd';
 import { SearchOutlined, FilterOutlined, ExportOutlined, ReloadOutlined } from '@ant-design/icons';
-import { formatNumber, formatCurrency, formatWeight, formatVolume, formatTime, formatDistance } from '../../utils/formatters';
-import { PAGINATION_CONFIG } from '../../utils/constants';
 import './DataTable.css';
 
 const { Search } = Input;
 const { Option } = Select;
 
+// 分页配置
+const PAGINATION_CONFIG = {
+  showSizeChanger: true,
+  showQuickJumper: true,
+  showTotal: (total, range) => `第 ${range[0]}-${range[1]} 条/共 ${total} 条`,
+  pageSizeOptions: ['10', '20', '50', '100'],
+  defaultPageSize: 20,
+  size: 'middle'
+};
+
+// 格式化函数
+const formatCurrency = (value) => {
+  if (value === null || value === undefined) return '-';
+  return `¥${Number(value).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}`;
+};
+
+const formatWeight = (value) => {
+  if (value === null || value === undefined) return '-';
+  return `${Number(value).toLocaleString('zh-CN')} 吨`;
+};
+
+const formatVolume = (value) => {
+  if (value === null || value === undefined) return '-';
+  return `${Number(value).toLocaleString('zh-CN')} m³`;
+};
+
+const formatTime = (value) => {
+  if (!value) return '-';
+  const date = new Date(value);
+  return date.toLocaleString('zh-CN');
+};
+
+const formatDistance = (value) => {
+  if (value === null || value === undefined) return '-';
+  return `${Number(value).toLocaleString('zh-CN')} km`;
+};
+
+const formatNumber = (value) => {
+  if (value === null || value === undefined) return '-';
+  return Number(value).toLocaleString('zh-CN');
+};
+
+/**
+ * 数据表格组件
+ * @param {Object} props - 组件属性
+ * @param {Array} props.data - 表格数据
+ * @param {Array} props.columns - 表格列配置
+ * @param {boolean} props.loading - 加载状态
+ * @param {string} props.title - 表格标题
+ * @param {boolean} props.searchable - 是否可搜索
+ * @param {boolean} props.filterable - 是否可筛选
+ * @param {boolean} props.exportable - 是否可导出
+ * @param {boolean} props.reloadable - 是否可重新加载
+ * @param {string|Function} props.rowKey - 行键
+ * @param {Object} props.pagination - 分页配置
+ * @param {Object} props.scroll - 滚动配置
+ * @param {string} props.size - 表格大小
+ * @param {string} props.className - 自定义类名
+ * @param {Object} props.style - 自定义样式
+ * @param {Function} props.onRowClick - 行点击事件
+ * @param {Function} props.onSelectionChange - 选择变化事件
+ * @param {Function} props.onReload - 重新加载事件
+ * @param {Object} props.components - 自定义组件
+ */
 const DataTable = ({
   data = [],
   columns = [],
@@ -18,115 +80,104 @@ const DataTable = ({
   exportable = true,
   reloadable = true,
   rowKey = 'id',
-  onRowClick,
-  onSelectionChange,
-  selectedRowKeys = [],
   pagination = PAGINATION_CONFIG,
   scroll = { x: 'max-content' },
   size = 'middle',
   className = '',
   style = {},
+  onRowClick,
+  onSelectionChange,
+  onReload,
+  components,
   ...props
 }) => {
+  // 状态管理
   const [searchText, setSearchText] = useState('');
-  const [filteredData, setFilteredData] = useState([]);
   const [filters, setFilters] = useState({});
-  const [sortedInfo, setSortedInfo] = useState({});
+  const [selectedRowKeys, setSelectedRowKeys] = useState([]);
+  const [sortField, setSortField] = useState('');
+  const [sortOrder, setSortOrder] = useState('');
 
-  // 处理数据过滤
-  useEffect(() => {
-    let filtered = [...data];
+  // 过滤和排序逻辑
+  const filteredData = useMemo(() => {
+    if (!Array.isArray(data)) return [];
+    
+    let result = [...data];
 
     // 搜索过滤
     if (searchText) {
-      filtered = filtered.filter(record => {
-        return Object.values(record).some(value => {
-          if (value === null || value === undefined) return false;
-          return value.toString().toLowerCase().includes(searchText.toLowerCase());
+      result = result.filter(record => {
+        return columns.some(column => {
+          const value = record[column.dataIndex];
+          return value && value.toString().toLowerCase().includes(searchText.toLowerCase());
         });
       });
     }
 
-    // 列过滤器过滤
+    // 列过滤器
     Object.keys(filters).forEach(key => {
-      const filterValues = filters[key];
-      if (filterValues && filterValues.length > 0) {
-        filtered = filtered.filter(record => {
-          return filterValues.includes(record[key]);
-        });
+      if (filters[key] && filters[key].length > 0) {
+        result = result.filter(record => filters[key].includes(record[key]));
       }
     });
 
-    setFilteredData(filtered);
-  }, [data, searchText, filters]);
+    // 排序
+    if (sortField && sortOrder) {
+      result.sort((a, b) => {
+        const aVal = a[sortField];
+        const bVal = b[sortField];
+        
+        if (aVal === null || aVal === undefined) return 1;
+        if (bVal === null || bVal === undefined) return -1;
+        
+        if (sortOrder === 'ascend') {
+          return aVal > bVal ? 1 : -1;
+        } else {
+          return aVal < bVal ? 1 : -1;
+        }
+      });
+    }
+
+    return result;
+  }, [data, searchText, filters, sortField, sortOrder, columns]);
 
   // 处理搜索
   const handleSearch = (value) => {
     setSearchText(value);
   };
 
-  // 处理过滤器变化
-  const handleFilterChange = (columnKey, values) => {
-    setFilters(prev => ({
-      ...prev,
-      [columnKey]: values
-    }));
-  };
-
-  // 处理排序
-  const handleSortChange = (sorter) => {
-    setSortedInfo(sorter);
-  };
-
-  // 处理表格变化
-  const handleTableChange = (pagination, filters, sorter) => {
-    setFilters(filters);
-    setSortedInfo(sorter);
-  };
-
-  // 导出数据
-  const handleExport = () => {
-    try {
-      const exportData = filteredData.map(record => {
-        const exportRecord = {};
-        columns.forEach(col => {
-          if (col.dataIndex && col.export !== false) {
-            const value = record[col.dataIndex];
-            exportRecord[col.title] = value;
-          }
-        });
-        return exportRecord;
-      });
-
-      // 转换为CSV格式
-      const csvContent = convertToCSV(exportData);
-      downloadFile(csvContent, `${title || 'data'}_${new Date().getTime()}.csv`, 'text/csv');
-      
-      message.success('数据导出成功');
-    } catch (error) {
-      message.error('数据导出失败');
-      console.error('Export error:', error);
+  // 处理表格变化（排序、过滤等）
+  const handleTableChange = (pagination, tableFilters, sorter) => {
+    setFilters(tableFilters);
+    
+    if (sorter.field) {
+      setSortField(sorter.field);
+      setSortOrder(sorter.order);
+    } else {
+      setSortField('');
+      setSortOrder('');
     }
   };
 
-  // 转换为CSV格式
-  const convertToCSV = (data) => {
-    if (data.length === 0) return '';
-    
-    const headers = Object.keys(data[0]);
-    const csvHeaders = headers.join(',');
-    const csvRows = data.map(row => 
-      headers.map(header => {
-        const value = row[header];
+  // 处理导出
+  const handleExport = () => {
+    if (!filteredData.length) {
+      message.warning('没有数据可以导出');
+      return;
+    }
+
+    const headers = columns.map(col => col.title).join(',');
+    const rows = filteredData.map(record => 
+      columns.map(col => {
+        const value = record[col.dataIndex];
         return value === null || value === undefined ? '' : `"${value}"`;
       }).join(',')
     );
     
-    return [csvHeaders, ...csvRows].join('\n');
-  };
-
-  // 下载文件
-  const downloadFile = (content, filename, contentType) => {
+    const content = [headers, ...rows].join('\n');
+    const contentType = 'text/csv;charset=utf-8;';
+    const filename = `${title || '数据表'}_${new Date().toISOString().slice(0, 10)}.csv`;
+    
     const blob = new Blob([content], { type: contentType });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -154,8 +205,8 @@ const DataTable = ({
 
   // 处理重新加载
   const handleReload = () => {
-    if (props.onReload) {
-      props.onReload();
+    if (onReload) {
+      onReload();
     }
   };
 
@@ -197,11 +248,13 @@ const DataTable = ({
 
       // 添加过滤器
       if (col.filterable && !col.filters) {
-        const uniqueValues = [...new Set(data.map(record => record[col.dataIndex]))].filter(Boolean);
-        enhancedCol.filters = uniqueValues.map(value => ({
-          text: value,
-          value: value
-        }));
+        if (Array.isArray(data)) {
+          const uniqueValues = [...new Set(data.map(record => record[col.dataIndex]))].filter(Boolean);
+          enhancedCol.filters = uniqueValues.map(value => ({
+            text: value,
+            value: value
+          }));
+        }
       }
 
       // 添加过滤器处理
@@ -304,24 +357,6 @@ const DataTable = ({
       />
     </div>
   );
-};
-
-// 默认属性
-DataTable.defaultProps = {
-  data: [],
-  columns: [],
-  loading: false,
-  title: '',
-  searchable: true,
-  filterable: true,
-  exportable: true,
-  reloadable: true,
-  rowKey: 'id',
-  pagination: PAGINATION_CONFIG,
-  scroll: { x: 'max-content' },
-  size: 'middle',
-  className: '',
-  style: {}
 };
 
 export default DataTable;

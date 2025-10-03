@@ -67,9 +67,9 @@ export const DashboardPage = () => {
         matchingAPI.getAll()
       ]);
 
-      const routesData = routesRes.data || [];
-      const shipmentsData = shipmentsRes.data || [];
-      const matchingData = matchingRes.data || [];
+      const routesData = routesRes.data?.routes || routesRes.data || [];
+      const shipmentsData = shipmentsRes.data?.shipments || shipmentsRes.data || [];
+      const matchingData = matchingRes.data?.matchings || matchingRes.data || [];
 
       setRoutes(routesData);
       setShipments(shipmentsData);
