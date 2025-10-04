@@ -104,6 +104,7 @@ const ShipmentsPage = () => {
   // 初始化加载数据
   useEffect(() => {
     fetchShipments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm]);
 
   // 表格列定义
