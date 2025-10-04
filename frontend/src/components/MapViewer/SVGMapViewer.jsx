@@ -20,6 +20,32 @@ const SVGMapViewer = ({
   const [selectedRoute, setSelectedRoute] = useState(null);
   const [selectedShipment, setSelectedShipment] = useState(null);
 
+  // 获取数据中涉及的所有城市
+  const getRequiredCities = useCallback(() => {
+    const cities = new Set();
+    
+    // 从路线数据中提取城市
+    routes.forEach(route => {
+      if (route.origin_city) cities.add(route.origin_city);
+      if (route.destination_city) cities.add(route.destination_city);
+      if (route.node_details) {
+        route.node_details.forEach(node => {
+          if (node.city_name) cities.add(node.city_name);
+        });
+      }
+    });
+    
+    // 从货物数据中提取城市
+    shipments.forEach(shipment => {
+      if (shipment.origin_city) cities.add(shipment.origin_city);
+      if (shipment.destination_city) cities.add(shipment.destination_city);
+      if (shipment.origin) cities.add(shipment.origin);
+      if (shipment.destination) cities.add(shipment.destination);
+    });
+    
+    return Array.from(cities);
+  }, [routes, shipments]);
+
   // 中国地图基础数据（简化版）
   const chinaMapData = {
     provinces: [
@@ -61,6 +87,55 @@ const SVGMapViewer = ({
 
   // 获取城市坐标
   const getCityCoordinates = useCallback((cityName) => {
+    if (!cityName) return { x: 400, y: 250 };
+    
+    // 城市名称映射表
+    const cityMapping = {
+      '北京': ['北京', '北京市', 'Beijing'],
+      '上海': ['上海', '上海市', 'Shanghai'],
+      '广州': ['广州', '广州市', 'Guangzhou', '广东'],
+      '深圳': ['深圳', '深圳市', 'Shenzhen'],
+      '南京': ['南京', '南京市', 'Nanjing', '江苏'],
+      '杭州': ['杭州', '杭州市', 'Hangzhou', '浙江'],
+      '济南': ['济南', '济南市', 'Jinan', '山东'],
+      '郑州': ['郑州', 'INTEGRATION', 'Zhengzhou', '河南'],
+      '武汉': ['武汉', '武汉市', 'Wuhan', '湖北'],
+      '长沙': ['长沙', '长沙市', 'Changsha', '湖南'],
+      '成都': ['成都', '成都市', 'Chengdu', '四川'],
+      '重庆': ['重庆', '重庆市', 'Chongqing'],
+      '西安': ['西安', '西安市', 'Xian', '陕西'],
+      '石家庄': ['石家庄', '石家庄市', 'Shijiazhuang', '河北'],
+      '太原': ['太原', '太原市', 'Taiyuan', '山西'],
+      '沈阳': ['沈阳', '沈阳市', 'Shenyang', '辽宁'],
+      '长春': ['长春', '长春市', 'Changchun', '吉林'],
+      '哈尔滨': ['哈尔滨', '哈尔滨市', 'Harbin', '黑龙江'],
+      '呼和浩特': ['呼和浩特', '呼和浩特市', 'Hohhot', '内蒙古'],
+      '乌鲁木齐': ['乌鲁木齐', '乌鲁木齐市', 'Urumqi', '新疆'],
+      '拉萨': ['拉萨', '拉萨市', 'Lhasa', '西藏'],
+      '西宁': ['西宁', '西宁市', 'Xining', '青海'],
+      '兰州': ['兰州', '兰州市', 'Lanzhou', '甘肃'],
+      '银川': ['银川', '银川市', 'Yinchuan', '宁夏'],
+      '天津': ['天津', '天津市', 'Tianjin'],
+      '南昌': ['南昌', '南昌市', 'Nanchang', '江西'],
+      '合肥': ['合肥', '合肥市', 'Hefei', '安徽'],
+      '福州': ['福州', '福州市', 'Fuzhou', '福建'],
+      '南宁': ['南宁', '南宁市', 'Nanning', '广西'],
+      '海口': ['海口', '海口市', 'Haikou', '海南'],
+      '昆明': ['昆明', '昆明市', 'Kunming', '云南'],
+      '贵阳': ['贵阳', '贵阳市', 'Guiyang', '贵州']
+    };
+
+    // 查找匹配的城市
+    for (const [provinceName, cityNames] of Object.entries(cityMapping)) {
+      if (cityNames.some(name => cityName.includes(name) || name.includes(cityName))) {
+        const province = chinaMapData.provinces.find(p => p.name === provinceName);
+        if (province) {
+          return { x: province.x, y: province.y };
+        }
+      }
+    }
+
+    // 如果没有找到精确匹配，尝试模糊匹配
     const province = chinaMapData.provinces.find(p => 
       cityName.includes(p.name) || p.name.includes(cityName)
     );
@@ -290,47 +365,68 @@ const SVGMapViewer = ({
     if (!svgRef.current) return;
 
     const svg = svgRef.current;
-    const width = svg.clientWidth || 800;
-    const height = svg.clientHeight || 500;
+    const container = svg.parentElement;
+    const width = container.clientWidth || 800;
+    const height = container.clientHeight || 500;
 
     // 清空SVG内容
     svg.innerHTML = '';
 
-    // 设置SVG尺寸
-    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+    // 设置SVG尺寸和视图框 - 使用更大的视图范围确保所有城市可见
+    const viewBoxWidth = 800;
+    const viewBoxHeight = 600;
+    const viewBoxX = 0;
+    const viewBoxY = 0;
+    
+    svg.setAttribute('viewBox', `${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}`);
     svg.setAttribute('width', width);
     svg.setAttribute('height', height);
+    svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
 
     // 创建背景
     const background = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    background.setAttribute('width', width);
-    background.setAttribute('height', height);
+    background.setAttribute('width', viewBoxWidth);
+    background.setAttribute('height', viewBoxHeight);
     background.setAttribute('fill', '#f0f8ff');
     background.setAttribute('stroke', '#ccc');
     background.setAttribute('stroke-width', '1');
     svg.appendChild(background);
 
-    // 绘制省份边界（简化版）
-    chinaMapData.provinces.forEach(province => {
-      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-      circle.setAttribute('cx', province.x);
-      circle.setAttribute('cy', province.y);
-      circle.setAttribute('r', '8');
-      circle.setAttribute('fill', '#e6f7ff');
-      circle.setAttribute('stroke', '#1890ff');
-      circle.setAttribute('stroke-width', '2');
-      circle.setAttribute('opacity', '0.7');
-      svg.appendChild(circle);
+    // 获取需要显示的城市
+    const requiredCities = getRequiredCities();
 
-      // 添加省份标签
-      const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      text.setAttribute('x', province.x);
-      text.setAttribute('y', province.y - 12);
-      text.setAttribute('text-anchor', 'middle');
-      text.setAttribute('font-size', '10');
-      text.setAttribute('fill', '#333');
-      text.textContent = province.name;
-      svg.appendChild(text);
+    // 如果没有指定城市，显示主要城市
+    const citiesToShow = requiredCities.length > 0 ? requiredCities : ['北京', '上海', '广州', '深圳'];
+
+    // 绘制需要的省份
+    chinaMapData.provinces.forEach(province => {
+      // 检查这个城市是否被需要
+      const isRequired = citiesToShow.some(city => 
+        city.includes(province.name) || province.name.includes(city)
+      );
+
+      if (isRequired) {
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('cx', province.x);
+        circle.setAttribute('cy', province.y);
+        circle.setAttribute('r', '10');
+        circle.setAttribute('fill', '#e6f7ff');
+        circle.setAttribute('stroke', '#1890ff');
+        circle.setAttribute('stroke-width', '2');
+        circle.setAttribute('opacity', '0.8');
+        svg.appendChild(circle);
+
+        // 添加省份标签
+        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        text.setAttribute('x', province.x);
+        text.setAttribute('y', province.y - 15);
+        text.setAttribute('text-anchor', 'middle');
+        text.setAttribute('font-size', '12');
+        text.setAttribute('font-weight', 'bold');
+        text.setAttribute('fill', '#333');
+        text.textContent = province.name;
+        svg.appendChild(text);
+      }
     });
 
     // 根据模式绘制数据
@@ -347,7 +443,7 @@ const SVGMapViewer = ({
       default:
         drawRoutes();
     }
-  }, [mode, drawRoutes, drawShipments, drawMatchingResults, chinaMapData.provinces]);
+  }, [mode, drawRoutes, drawShipments, drawMatchingResults, chinaMapData.provinces, getRequiredCities]);
 
   // 切换全屏
   const toggleFullscreen = () => {
