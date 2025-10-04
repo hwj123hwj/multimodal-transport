@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Row, Col, Statistic, Button, Space, message, Select, Badge, Progress } from 'antd';
-import { CheckCircleOutlined, CloseCircleOutlined, ExportOutlined, ReloadOutlined, AimOutlined } from '@ant-design/icons';
+import { Card, Row, Col, Statistic, Tag, Button, Space, message, Select } from 'antd';
+import { AimOutlined, ExportOutlined, ReloadOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import MapViewer from '../../components/MapViewer/MapViewer';
 import DataTable from '../../components/DataTable/DataTable';
 import { matchingAPI, routesAPI, shipmentsAPI } from '../../services/api';
-import { formatDistance, formatTime, formatCurrency, formatWeight, formatVolume } from '../../utils/formatters';
+import { formatTime, formatCurrency } from '../../utils/formatters';
+import { MATCHING_STATUS } from '../../utils/constants';
 
 const { Option } = Select;
 
@@ -18,28 +19,28 @@ const MatchingPage = () => {
   const [mapEngine, setMapEngine] = useState('baidu'); // 'baidu' 或 'svg'
   const [statistics, setStatistics] = useState({
     totalMatches: 0,
-    successfulMatches: 0,
-    avgScore: 0,
-    totalSavedCost: 0
+    matchedRoutes: 0,
+    matchedShipments: 0,
+    avgMatchScore: 0
   });
 
-  // 获取所有数据
-  const fetchAllData = async () => {
+  // 获取匹配结果数据
+  const fetchMatchingResults = async () => {
     try {
       setLoading(true);
       
-      // 并行获取所有数据
-      const [matchingRes, routesRes, shipmentsRes] = await Promise.all([
+      // 获取匹配结果
+      const [matchingResponse, routesResponse, shipmentsResponse] = await Promise.all([
         matchingAPI.getAll(),
         routesAPI.getAll(),
         shipmentsAPI.getAll()
       ]);
       
-      let matches = matchingRes.data;
-      let routesData = routesRes.data;
-      let shipmentsData = shipmentsRes.data;
+      let matches = matchingResponse.data;
+      let routesData = routesResponse.data;
+      let shipmentsData = shipmentsResponse.data;
       
-      // 确保data是数组
+      // 确保数据是数组
       if (!Array.isArray(matches)) {
         matches = matches?.matches || matches?.data || [];
       }
@@ -55,33 +56,48 @@ const MatchingPage = () => {
       setShipments(shipmentsData);
       
       // 计算统计信息
-      const successfulMatches = matches.filter(m => m.match_score > 0.7);
-      const avgScore = matches.length > 0 
-        ? matches.reduce((sum, m) => sum + (m.match_score || 0), 0) / matches.length 
-        : 0;
-      const totalSavedCost = successfulMatches.reduce((sum, m) => sum + (m.saved_cost || 0), 0);
-      
       const stats = {
         totalMatches: matches.length,
-        successfulMatches: successfulMatches.length,
-        avgScore: avgScore,
-        totalSavedCost: totalSavedCost
+        matchedRoutes: new Set(matches.map(m => m.route_id)).size,
+        matchedShipments: new Set(matches.map(m => m.shipment_id)).size,
+        avgMatchScore: matches.length > 0 ? matches.reduce((sum, m) => sum + (m.match_score || 0), 0) / matches.length : 0
       };
       setStatistics(stats);
       
-      message.success('匹配数据加载成功');
+      message.success('匹配结果加载成功');
     } catch (error) {
-      console.error('获取匹配数据失败:', error);
-      message.error('获取匹配数据失败');
+      console.error('获取匹配结果失败:', error);
+      message.error('获取匹配结果失败');
       setMatchingResults([]);
       setRoutes([]);
       setShipments([]);
       setStatistics({
         totalMatches: 0,
-        successfulMatches: 0,
-        avgScore: 0,
-        totalSavedCost: 0
+        matchedRoutes: 0,
+        matchedShipments: 0,
+        avgMatchScore: 0
       });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 处理匹配结果选择
+  const handleResultSelect = (result) => {
+    setSelectedResult(result);
+    setMapMode('matching');
+  };
+
+  // 处理匹配结果筛选
+  const handleResultFilter = async (filters) => {
+    try {
+      setLoading(true);
+      const response = await matchingAPI.filter(filters);
+      setMatchingResults(response.data);
+      message.success(`筛选出 ${response.data.length} 条匹配结果`);
+    } catch (error) {
+      console.error('筛选匹配结果失败:', error);
+      message.error('筛选匹配结果失败');
     } finally {
       setLoading(false);
     }
@@ -93,49 +109,18 @@ const MatchingPage = () => {
     message.info(`已切换到${engine === 'baidu' ? '百度地图' : 'SVG地图'}`);
   };
 
-  // 处理匹配结果选择
-  const handleResultSelect = (result) => {
-    setSelectedResult(result);
-    setMapMode('matching');
-  };
-
-  // 获取匹配状态标签
-  const getStatusTag = (score) => {
-    if (score >= 0.9) {
-      return <Badge status="success" text="优秀匹配" />;
-    } else if (score >= 0.7) {
-      return <Badge status="processing" text="良好匹配" />;
-    } else if (score >= 0.5) {
-      return <Badge status="warning" text="一般匹配" />;
-    } else {
-      return <Badge status="error" text="低匹配" />;
-    }
-  };
-
-  // 获取进度条颜色
-  const getProgressColor = (score) => {
-    if (score >= 0.9) return '#52c41a';
-    if (score >= 0.7) return '#1890ff';
-    if (score >= 0.5) return '#faad14';
-    return '#f5222d';
-  };
-
   // 处理数据导出
   const handleExport = () => {
-    const data = matchingResults.map(result => {
-      const route = routes.find(r => r.id === result.route_id);
-      const shipment = shipments.find(s => s.id === result.shipment_id);
-      
-      return {
-        '匹配ID': result.id,
-        '路线': route ? `${route.origin} - ${route.destination}` : '未知',
-        '货物': shipment ? shipment.name : '未知',
-        '匹配度': `${(result.match_score * 100).toFixed(1)}%`,
-        '节省成本': formatCurrency(result.saved_cost),
-        '匹配状态': result.match_score >= 0.7 ? '成功' : '失败',
-        '创建时间': new Date(result.created_at).toLocaleString()
-      };
-    });
+    const data = matchingResults.map(result => ({
+      '匹配ID': result.id,
+      '路线ID': result.route_id,
+      '货物ID': result.shipment_id,
+      '匹配分数': result.match_score,
+      '状态': result.status,
+      '成本节约': formatCurrency(result.cost_saving || 0),
+      '时间节约': formatTime(result.time_saving || 0),
+      '创建时间': new Date(result.created_at).toLocaleString()
+    }));
     
     const csvContent = [
       Object.keys(data[0]).join(','),
@@ -153,8 +138,23 @@ const MatchingPage = () => {
 
   // 页面加载时获取数据
   useEffect(() => {
-    fetchAllData();
+    fetchMatchingResults();
   }, []);
+
+  // 获取匹配结果对应的路线和货物信息
+  const getRouteInfo = (routeId) => {
+    return routes.find(route => route.id === routeId) || {};
+  };
+
+  const getShipmentInfo = (shipmentId) => {
+    return shipments.find(shipment => shipment.id === shipmentId) || {};
+  };
+
+  // 获取状态颜色
+  const getStatusColor = (status) => {
+    const statusConfig = MATCHING_STATUS[status?.toUpperCase()];
+    return statusConfig?.color || 'default';
+  };
 
   // 表格列配置
   const columns = [
@@ -168,69 +168,71 @@ const MatchingPage = () => {
     {
       title: '路线',
       key: 'route',
-      width: 200,
+      width: 120,
       render: (_, record) => {
-        const route = routes.find(r => r.id === record.route_id);
-        return route ? (
+        const route = getRouteInfo(record.route_id);
+        return (
           <div>
-            <div>{route.origin}</div>
-            <div style={{ color: '#999', fontSize: '12px' }}>→ {route.destination}</div>
+            <div style={{ fontWeight: 'bold' }}>{route.origin}</div>
+            <div style={{ color: '#999' }}>→</div>
+            <div>{route.destination}</div>
           </div>
-        ) : '未知路线';
+        );
       }
     },
     {
       title: '货物',
       key: 'shipment',
-      width: 150,
+      width: 120,
       render: (_, record) => {
-        const shipment = shipments.find(s => s.id === record.shipment_id);
-        return shipment ? (
+        const shipment = getShipmentInfo(record.shipment_id);
+        return (
           <div>
-            <div>{shipment.name}</div>
-            <div style={{ color: '#999', fontSize: '12px' }}>
-              {formatWeight(shipment.weight)} | {formatVolume(shipment.volume)}
-            </div>
+            <div>{shipment.origin}</div>
+            <div style={{ color: '#999' }}>→</div>
+            <div>{shipment.destination}</div>
           </div>
-        ) : '未知货物';
+        );
       }
     },
     {
-      title: '匹配度',
+      title: '匹配分数',
       dataIndex: 'match_score',
       key: 'match_score',
-      width: 120,
+      width: 100,
       render: (score) => (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Progress
-            percent={score * 100}
-            size="small"
-            strokeColor={getProgressColor(score)}
-            format={percent => `${percent.toFixed(1)}%`}
-            style={{ width: 80 }}
-          />
-          {score >= 0.7 ? (
-            <CheckCircleOutlined style={{ color: '#52c41a' }} />
-          ) : (
-            <CloseCircleOutlined style={{ color: '#f5222d' }} />
-          )}
-        </div>
+        <Tag color={score >= 80 ? 'green' : score >= 60 ? 'orange' : 'red'}>
+          {score?.toFixed(1) || '0.0'}
+        </Tag>
       ),
       sorter: (a, b) => a.match_score - b.match_score
     },
     {
-      title: '节省成本',
-      dataIndex: 'saved_cost',
-      key: 'saved_cost',
-      width: 100,
-      render: (cost) => formatCurrency(cost),
-      sorter: (a, b) => a.saved_cost - b.saved_cost
+      title: '状态',
+      dataIndex: 'status',
+      key: 'status',
+      width: 80,
+      render: (status) => (
+        <Tag color={getStatusColor(status)}>
+          {status === 'matched' ? '已匹配' : status === 'pending' ? '待确认' : '已拒绝'}
+        </Tag>
+      )
     },
     {
-      title: '匹配状态',
-      key: 'status',
+      title: '成本节约',
+      dataIndex: 'cost_saving',
+      key: 'cost_saving',
       width: 100,
-      render: (_, record) => getStatusTag(record.match_score)
+      render: (saving) => formatCurrency(saving || 0),
+      sorter: (a, b) => (a.cost_saving || 0) - (b.cost_saving || 0)
+    },
+    {
+      title: '时间节约',
+      dataIndex: 'time_saving',
+      key: 'time_saving',
+      width: 100,
+      render: (saving) => formatTime(saving || 0),
+      sorter: (a, b) => (a.time_saving || 0) - (b.time_saving || 0)
     },
     {
       title: '创建时间',
@@ -276,9 +278,8 @@ const MatchingPage = () => {
         <Col xs={24} sm={12} md={6}>
           <Card>
             <Statistic
-              title="成功匹配"
-              value={statistics.successfulMatches}
-              suffix={`/ ${statistics.totalMatches}`}
+              title="匹配路线数"
+              value={statistics.matchedRoutes}
               valueStyle={{ color: '#52c41a' }}
             />
           </Card>
@@ -286,10 +287,8 @@ const MatchingPage = () => {
         <Col xs={24} sm={12} md={6}>
           <Card>
             <Statistic
-              title="平均匹配度"
-              value={statistics.avgScore * 100}
-              precision={1}
-              suffix="%"
+              title="匹配货物数"
+              value={statistics.matchedShipments}
               valueStyle={{ color: '#faad14' }}
             />
           </Card>
@@ -297,10 +296,9 @@ const MatchingPage = () => {
         <Col xs={24} sm={12} md={6}>
           <Card>
             <Statistic
-              title="总节省成本"
-              value={statistics.totalSavedCost}
-              precision={2}
-              prefix="¥"
+              title="平均匹配分数"
+              value={statistics.avgMatchScore}
+              precision={1}
               valueStyle={{ color: '#f5222d' }}
             />
           </Card>
@@ -310,7 +308,7 @@ const MatchingPage = () => {
       {/* 工具栏 */}
       <Card style={{ marginBottom: 24 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h3 style={{ margin: 0 }}>匹配结果管理</h3>
+          <h3 style={{ margin: 0 }}>匹配结果</h3>
           <Space>
             <Select
               value={mapEngine}
@@ -324,7 +322,7 @@ const MatchingPage = () => {
             <Button
               type="primary"
               icon={<ReloadOutlined />}
-              onClick={fetchAllData}
+              onClick={fetchMatchingResults}
               loading={loading}
             >
               刷新
@@ -340,9 +338,9 @@ const MatchingPage = () => {
         </div>
       </Card>
 
-      {/* 地图和详情 */}
+      {/* 地图和详情区域 */}
       <Row gutter={16}>
-        <Col xs={24} lg={selectedResult ? 12 : 24}>
+        <Col span={12}>
           <Card
             title="匹配结果地图"
             styles={{ body: { padding: 0 } }}
@@ -350,19 +348,19 @@ const MatchingPage = () => {
           >
             <MapViewer
               mode={mapMode}
-              matchings={selectedResult ? [selectedResult] : matchingResults}
-              routes={routes}
-              shipments={shipments}
+              matchingResults={selectedResult ? [selectedResult] : matchingResults}
               selectedResult={selectedResult}
               onResultSelect={handleResultSelect}
+              routes={routes}
+              shipments={shipments}
               mapEngine={mapEngine}
               height="100%"
             />
           </Card>
         </Col>
         
-        {selectedResult && (
-          <Col xs={24} lg={12}>
+        <Col span={12}>
+          {selectedResult ? (
             <Card
               title="匹配详情"
               extra={
@@ -382,67 +380,66 @@ const MatchingPage = () => {
                     <div>{selectedResult.id}</div>
                   </Col>
                   <Col span={12}>
-                    <strong>匹配状态:</strong>
-                    <div>{getStatusTag(selectedResult.match_score)}</div>
+                    <strong>匹配分数:</strong>
+                    <div>
+                      <Tag color={selectedResult.match_score >= 80 ? 'green' : selectedResult.match_score >= 60 ? 'orange' : 'red'}>
+                        {selectedResult.match_score?.toFixed(1) || '0.0'}
+                      </Tag>
+                    </div>
                   </Col>
                 </Row>
                 
                 <Row gutter={16} style={{ marginTop: 16 }}>
                   <Col span={12}>
-                    <strong>匹配度:</strong>
-                    <div style={{ marginTop: 8 }}>
-                      <Progress
-                        percent={selectedResult.match_score * 100}
-                        strokeColor={getProgressColor(selectedResult.match_score)}
-                        format={percent => `${percent.toFixed(1)}%`}
-                      />
+                    <strong>路线信息:</strong>
+                    <div>
+                      {(() => {
+                        const route = getRouteInfo(selectedResult.route_id);
+                        return (
+                          <div>
+                            <div>{route.origin}</div>
+                            <div style={{ color: '#999' }}>→</div>
+                            <div>{route.destination}</div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </Col>
                   <Col span={12}>
-                    <strong>节省成本:</strong>
-                    <div style={{ color: '#52c41a', fontWeight: 'bold' }}>
-                      {formatCurrency(selectedResult.saved_cost)}
+                    <strong>货物信息:</strong>
+                    <div>
+                      {(() => {
+                        const shipment = getShipmentInfo(selectedResult.shipment_id);
+                        return (
+                          <div>
+                            <div>{shipment.origin}</div>
+                            <div style={{ color: '#999' }}>→</div>
+                            <div>{shipment.destination}</div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </Col>
                 </Row>
                 
-                <div style={{ marginTop: 16 }}>
-                  <strong>路线信息:</strong>
-                  <div style={{ marginTop: 8 }}>
-                    {(() => {
-                      const route = routes.find(r => r.id === selectedResult.route_id);
-                      return route ? (
-                        <div>
-                          <div>起点: {route.origin}</div>
-                          <div>终点: {route.destination}</div>
-                          <div>距离: {formatDistance(route.total_distance)}</div>
-                          <div>耗时: {formatTime(route.total_duration)}</div>
-                      <div>成本: {formatCurrency(route.total_cost)}</div>
-                        </div>
-                      ) : '未知路线';
-                    })()}
-                  </div>
-                </div>
-                
-                <div style={{ marginTop: 16 }}>
-                  <strong>货物信息:</strong>
-                  <div style={{ marginTop: 8 }}>
-                    {(() => {
-                      const shipment = shipments.find(s => s.id === selectedResult.shipment_id);
-                      return shipment ? (
-                        <div>
-                          <div>名称: {shipment.name}</div>
-                          <div>类型: {shipment.type}</div>
-                          <div>重量: {formatWeight(shipment.weight)}</div>
-                          <div>体积: {formatVolume(shipment.volume)}</div>
-                          <div>价值: {formatCurrency(shipment.value)}</div>
-                          <div>起点: {shipment.origin}</div>
-                          <div>终点: {shipment.destination}</div>
-                        </div>
-                      ) : '未知货物';
-                    })()}
-                  </div>
-                </div>
+                <Row gutter={16} style={{ marginTop: 16 }}>
+                  <Col span={8}>
+                    <strong>状态:</strong>
+                    <div>
+                      <Tag color={getStatusColor(selectedResult.status)}>
+                        {selectedResult.status === 'matched' ? '已匹配' : selectedResult.status === 'pending' ? '待确认' : '已拒绝'}
+                      </Tag>
+                    </div>
+                  </Col>
+                  <Col span={8}>
+                    <strong>成本节约:</strong>
+                    <div>{formatCurrency(selectedResult.cost_saving || 0)}</div>
+                  </Col>
+                  <Col span={8}>
+                    <strong>时间节约:</strong>
+                    <div>{formatTime(selectedResult.time_saving || 0)}</div>
+                  </Col>
+                </Row>
                 
                 <div style={{ marginTop: 16 }}>
                   <strong>创建时间:</strong>
@@ -450,8 +447,26 @@ const MatchingPage = () => {
                 </div>
               </div>
             </Card>
-          </Col>
-        )}
+          ) : (
+            <Card
+              title="匹配信息"
+              style={{ height: '600px' }}
+            >
+              <div style={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                height: '100%',
+                textAlign: 'center'
+              }}>
+                <CheckCircleOutlined style={{ fontSize: 48, color: '#ccc', marginBottom: 16 }} />
+                <h3>选择匹配结果查看详情</h3>
+                <p style={{ color: '#999' }}>点击左侧地图上的匹配结果或下方表格中的"查看"按钮</p>
+              </div>
+            </Card>
+          )}
+        </Col>
       </Row>
 
       {/* 数据表格 */}
@@ -461,6 +476,7 @@ const MatchingPage = () => {
           data={matchingResults}
           columns={columns}
           loading={loading}
+          onFilter={handleResultFilter}
           exportable
           searchable
           pagination

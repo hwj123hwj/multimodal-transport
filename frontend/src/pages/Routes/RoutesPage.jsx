@@ -296,9 +296,9 @@ const RoutesPage = () => {
         </div>
       </Card>
 
-      {/* 地图和表格 */}
+      {/* 地图和详情区域 */}
       <Row gutter={16}>
-        <Col xs={24} lg={selectedRoute ? 12 : 24}>
+        <Col span={12}>
           <Card
             title="路线地图"
             styles={{ body: { padding: 0 } }}
@@ -315,8 +315,8 @@ const RoutesPage = () => {
           </Card>
         </Col>
         
-        {selectedRoute && (
-          <Col xs={24} lg={12}>
+        <Col span={12}>
+          {selectedRoute ? (
             <Card
               title="路线详情"
               extra={
@@ -375,8 +375,26 @@ const RoutesPage = () => {
                 </div>
               </div>
             </Card>
-          </Col>
-        )}
+          ) : (
+            <Card
+              title="路线信息"
+              style={{ height: '600px' }}
+            >
+              <div style={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                height: '100%',
+                textAlign: 'center'
+              }}>
+                <AimOutlined style={{ fontSize: 48, color: '#ccc', marginBottom: 16 }} />
+                <h3>选择路线查看详情</h3>
+                <p style={{ color: '#999' }}>点击左侧地图上的路线或下方表格中的"查看"按钮</p>
+              </div>
+            </Card>
+          )}
+        </Col>
       </Row>
 
       {/* 数据表格 */}
