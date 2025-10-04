@@ -1,32 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Row, Col, Statistic, Tag, Button, Space, message, Select, Input } from 'antd';
-import { BoxPlotOutlined, ExportOutlined, ReloadOutlined, SearchOutlined } from '@ant-design/icons';
-import MapViewer from '../../components/MapViewer/MapViewer';
-import DataTable from '../../components/DataTable/DataTable';
+import { Card, Row, Col, Statistic, Input, Button, Space, Table, Tag, message } from 'antd';
+import { SearchOutlined, ReloadOutlined, ExportOutlined, ClearOutlined } from '@ant-design/icons';
 import { shipmentsAPI } from '../../services/api';
-import { formatWeight, formatVolume, formatCurrency } from '../../utils/formatters';
+import './ShipmentsPage.css';
 
-const { Option } = Select;
+const { Search } = Input;
 
 const ShipmentsPage = () => {
   const [shipments, setShipments] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedShipment, setSelectedShipment] = useState(null);
-  const [mapMode, setMapMode] = useState('shipments');
-  const [mapEngine, setMapEngine] = useState('baidu'); // 'baidu' 或 'svg'
-  const [searchText, setSearchText] = useState('');
-  const [searchType, setSearchType] = useState('all');
-  const [statistics, setStatistics] = useState({
-    totalShipments: 0,
-    totalWeight: 0,
-    totalVolume: 0,
-    totalValue: 0
+  const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [stats, setStats] = useState({
+    total: 0,
+    pending: 0,
+    inTransit: 0,
+    delivered: 0
   });
 
   // 获取货物数据
   const fetchShipments = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
       const response = await shipmentsAPI.getAll();
       let data = response.data;
       
@@ -35,426 +29,282 @@ const ShipmentsPage = () => {
         data = data?.shipments || data?.data || [];
       }
       
+      // 搜索过滤
+      if (searchTerm) {
+        data = data.filter(shipment => 
+          shipment.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          shipment.origin.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          shipment.destination.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+      }
+      
       setShipments(data);
       
-      // 计算统计信息
+      // 计算统计数据
       const stats = {
-        totalShipments: data.length,
-        totalWeight: data.reduce((sum, shipment) => sum + (shipment.weight || 0), 0),
-        totalVolume: data.reduce((sum, shipment) => sum + (shipment.volume || 0), 0),
-        totalValue: data.reduce((sum, shipment) => sum + (shipment.value || 0), 0)
+        total: data.length,
+        pending: data.filter(s => s.status === 'pending').length,
+        inTransit: data.filter(s => s.status === 'in-transit').length,
+        delivered: data.filter(s => s.status === 'delivered').length
       };
-      setStatistics(stats);
-      
-      message.success('货物数据加载成功');
+      setStats(stats);
     } catch (error) {
-      console.error('获取货物数据失败:', error);
       message.error('获取货物数据失败');
-      setShipments([]);
-      setStatistics({
-        totalShipments: 0,
-        totalWeight: 0,
-        totalVolume: 0,
-        totalValue: 0
-      });
+      console.error('获取货物数据失败:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  // 处理货物搜索
-  const handleSearch = async () => {
-    if (!searchText.trim()) {
-      fetchShipments();
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const response = await shipmentsAPI.search(searchText, searchType);
-      const data = response.data;
-      
-      setShipments(data);
-      
-      // 重新计算统计信息
-      const stats = {
-        totalShipments: data.length,
-        totalWeight: data.reduce((sum, shipment) => sum + shipment.weight, 0),
-        totalVolume: data.reduce((sum, shipment) => sum + shipment.volume, 0),
-        totalValue: data.reduce((sum, shipment) => sum + shipment.value, 0)
-      };
-      setStatistics(stats);
-      
-      message.success(`搜索到 ${data.length} 条货物信息`);
-    } catch (error) {
-      console.error('搜索货物失败:', error);
-      message.error('搜索货物失败');
-    } finally {
-      setLoading(false);
-    }
+  // 搜索处理
+  const handleSearch = (value) => {
+    setSearchTerm(value);
   };
 
-  // 切换地图引擎
-  const handleMapEngineChange = (engine) => {
-    setMapEngine(engine);
-    message.info(`已切换到${engine === 'baidu' ? '百度地图' : 'SVG地图'}`);
+  // 清除搜索
+  const handleClearSearch = () => {
+    setSearchTerm('');
   };
 
-  // 处理货物选择
-  const handleShipmentSelect = (shipment) => {
-    setSelectedShipment(shipment);
-    setMapMode('shipments');
-  };
-
-  // 处理数据导出
+  // 导出数据
   const handleExport = () => {
-    const data = shipments.map(shipment => ({
-      '货物ID': shipment.id,
-      '名称': shipment.name,
-      '类型': shipment.type,
-      '重量': formatWeight(shipment.weight),
-      '体积': formatVolume(shipment.volume),
-      '价值': formatCurrency(shipment.value),
-      '起点': shipment.origin,
-      '终点': shipment.destination,
-      '创建时间': new Date(shipment.created_at).toLocaleString()
-    }));
-    
-    const csvContent = [
-      Object.keys(data[0]).join(','),
-      ...data.map(row => Object.values(row).join(','))
-    ].join('\n');
-    
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `shipments_${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
-    
-    message.success('货物数据导出成功');
+    try {
+      const csvContent = [
+        ['货物名称', '类型', '重量(kg)', '体积(m³)', '状态', '起点', '终点', '预计到达时间', '实际到达时间'],
+        ...shipments.map(shipment => [
+          shipment.name,
+          shipment.type,
+          shipment.weight,
+          shipment.volume,
+          shipment.status,
+          shipment.origin,
+          shipment.destination,
+          shipment.estimatedArrival,
+          shipment.actualArrival || '未到达'
+        ])
+      ].map(row => row.join(',')).join('\n');
+      
+      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `货物数据_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      message.success('数据导出成功');
+    } catch (error) {
+      message.error('数据导出失败');
+      console.error('数据导出失败:', error);
+    }
   };
 
-  // 页面加载时获取数据
+  // 初始化加载数据
   useEffect(() => {
     fetchShipments();
-  }, []);
+  }, [searchTerm]);
 
-  // 表格列配置
+  // 表格列定义
   const columns = [
     {
-      title: '货物ID',
-      dataIndex: 'id',
-      key: 'id',
-      width: 80,
-      sorter: (a, b) => a.id - b.id
-    },
-    {
-      title: '名称',
+      title: '货物名称',
       dataIndex: 'name',
       key: 'name',
-      ellipsis: true,
-      filter: true
+      width: 150,
+      render: (text) => <span style={{ fontWeight: 500 }}>{text}</span>
     },
     {
       title: '类型',
       dataIndex: 'type',
       key: 'type',
       width: 100,
-      render: (type) => (
-        <Tag color={
-          type === '普通' ? 'blue' :
-          type === '易碎' ? 'orange' :
-          type === '危险品' ? 'red' :
-          type === '冷藏' ? 'cyan' :
-          'default'
-        }>
-          {type}
-        </Tag>
-      ),
-      filters: [
-        { text: '普通', value: '普通' },
-        { text: '易碎', value: '易碎' },
-        { text: '危险品', value: '危险品' },
-        { text: '冷藏', value: '冷藏' }
-      ],
-      onFilter: (value, record) => record.type === value
+      render: (type) => {
+        const typeMap = {
+          'general': { text: '普通货物', color: 'blue' },
+          'perishable': { text: '易腐货物', color: 'orange' },
+          'fragile': { text: '易碎货物', color: 'purple' },
+          'hazardous': { text: '危险品', color: 'red' },
+          'valuable': { text: '贵重货物', color: 'gold' }
+        };
+        const typeInfo = typeMap[type] || { text: '未知', color: 'default' };
+        return <Tag color={typeInfo.color} className={`type-tag ${type}`}>{typeInfo.text}</Tag>;
+      }
     },
     {
-      title: '重量',
+      title: '重量(kg)',
       dataIndex: 'weight',
       key: 'weight',
       width: 100,
-      render: (weight) => formatWeight(weight),
-      sorter: (a, b) => a.weight - b.weight
+      render: (weight) => `${weight} kg`
     },
     {
-      title: '体积',
+      title: '体积(m³)',
       dataIndex: 'volume',
       key: 'volume',
       width: 100,
-      render: (volume) => formatVolume(volume),
-      sorter: (a, b) => a.volume - b.volume
+      render: (volume) => `${volume} m³`
     },
     {
-      title: '价值',
-      dataIndex: 'value',
-      key: 'value',
-      width: 120,
-      render: (value) => formatCurrency(value),
-      sorter: (a, b) => a.value - b.value
+      title: '状态',
+      dataIndex: 'status',
+      key: 'status',
+      width: 100,
+      render: (status) => {
+        const statusMap = {
+          'pending': { text: '待处理', color: 'orange' },
+          'in-transit': { text: '运输中', color: 'blue' },
+          'delivered': { text: '已送达', color: 'green' },
+          'cancelled': { text: '已取消', color: 'red' },
+          'expired': { text: '已过期', color: 'purple' }
+        };
+        const statusInfo = statusMap[status] || { text: '未知', color: 'default' };
+        return <Tag color={statusInfo.color} className={`status-tag ${status}`}>{statusInfo.text}</Tag>;
+      }
     },
     {
       title: '起点',
       dataIndex: 'origin',
       key: 'origin',
-      ellipsis: true,
-      filter: true
+      width: 120
     },
     {
       title: '终点',
       dataIndex: 'destination',
       key: 'destination',
-      ellipsis: true,
-      filter: true
+      width: 120
     },
     {
-      title: '创建时间',
-      dataIndex: 'created_at',
-      key: 'created_at',
-      width: 160,
-      render: (date) => new Date(date).toLocaleString(),
-      sorter: (a, b) => new Date(a.created_at) - new Date(b.created_at)
+      title: '预计到达时间',
+      dataIndex: 'estimatedArrival',
+      key: 'estimatedArrival',
+      width: 150,
+      render: (date) => date ? new Date(date).toLocaleString('zh-CN') : '未知'
     },
     {
       title: '操作',
-      key: 'action',
+      key: 'actions',
       width: 120,
       render: (_, record) => (
-        <Space size="small">
-          <Button
-            type="link"
-            size="small"
-            icon={<BoxPlotOutlined />}
-            onClick={() => handleShipmentSelect(record)}
-          >
-            查看
+        <div className="action-buttons">
+          <Button size="small" type="primary" ghost>
+            详情
           </Button>
-        </Space>
+          <Button size="small" type="default">
+            编辑
+          </Button>
+        </div>
       )
     }
   ];
 
   return (
     <div className="shipments-page">
-      {/* 统计卡片 */}
-      <Row gutter={16} style={{ marginBottom: 24 }}>
-        <Col xs={24} sm={12} md={6}>
+      {/* 搜索栏 */}
+      <Card className="search-section">
+        <Row gutter={16} align="middle">
+          <Col flex="auto">
+            <Search
+              placeholder="搜索货物名称、起点或终点..."
+              allowClear
+              enterButton={<SearchOutlined />}
+              size="large"
+              value={searchTerm}
+              onSearch={handleSearch}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{ maxWidth: 400 }}
+            />
+          </Col>
+          <Col>
+            <Space>
+              <Button
+                icon={<ClearOutlined />}
+                onClick={handleClearSearch}
+                disabled={!searchTerm}
+                className="clear-search-button"
+              >
+                清除
+              </Button>
+              <Button
+                icon={<ReloadOutlined />}
+                onClick={fetchShipments}
+                loading={loading}
+                className="refresh-button"
+              >
+                刷新
+              </Button>
+              <Button
+                icon={<ExportOutlined />}
+                onClick={handleExport}
+                className="export-button"
+              >
+                导出
+              </Button>
+            </Space>
+          </Col>
+        </Row>
+      </Card>
+
+      {/* 统计信息 */}
+      <Row gutter={16}>
+        <Col span={6}>
           <Card>
             <Statistic
               title="总货物数"
-              value={statistics.totalShipments}
-              prefix={<BoxPlotOutlined />}
+              value={stats.total}
+              prefix="#"
               valueStyle={{ color: '#1890ff' }}
             />
           </Card>
         </Col>
-        <Col xs={24} sm={12} md={6}>
+        <Col span={6}>
           <Card>
             <Statistic
-              title="总重量"
-              value={statistics.totalWeight}
-              precision={2}
-              suffix="吨"
+              title="待处理"
+              value={stats.pending}
+              prefix="#"
+              valueStyle={{ color: '#fa8c16' }}
+            />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card>
+            <Statistic
+              title="运输中"
+              value={stats.inTransit}
+              prefix="#"
+              valueStyle={{ color: '#1890ff' }}
+            />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card>
+            <Statistic
+              title="已送达"
+              value={stats.delivered}
+              prefix="#"
               valueStyle={{ color: '#52c41a' }}
             />
           </Card>
         </Col>
-        <Col xs={24} sm={12} md={6}>
-          <Card>
-            <Statistic
-              title="总体积"
-              value={statistics.totalVolume}
-              precision={2}
-              suffix="m³"
-              valueStyle={{ color: '#faad14' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} md={6}>
-          <Card>
-            <Statistic
-              title="总价值"
-              value={statistics.totalValue}
-              precision={2}
-              prefix="¥"
-              valueStyle={{ color: '#f5222d' }}
-            />
-          </Card>
-        </Col>
       </Row>
 
-      {/* 搜索和工具栏 */}
-      <Card style={{ marginBottom: 24 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
-          <h3 style={{ margin: 0 }}>货物管理</h3>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <Select
-              value={searchType}
-              onChange={setSearchType}
-              style={{ width: 120 }}
-            >
-              <Option value="all">全部</Option>
-              <Option value="name">名称</Option>
-              <Option value="type">类型</Option>
-              <Option value="origin">起点</Option>
-              <Option value="destination">终点</Option>
-            </Select>
-            <Input
-              placeholder="搜索货物..."
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              onPressEnter={handleSearch}
-              style={{ width: 200 }}
-              prefix={<SearchOutlined />}
-            />
-            <Button type="primary" onClick={handleSearch} icon={<SearchOutlined />}>
-              搜索
-            </Button>
-            <Select
-              value={mapEngine}
-              onChange={handleMapEngineChange}
-              style={{ width: 120 }}
-              size="small"
-            >
-              <Option value="baidu">百度地图</Option>
-              <Option value="svg">SVG地图</Option>
-            </Select>
-            <Button
-              icon={<ReloadOutlined />}
-              onClick={fetchShipments}
-              loading={loading}
-            >
-              刷新
-            </Button>
-            <Button
-              icon={<ExportOutlined />}
-              onClick={handleExport}
-              disabled={shipments.length === 0}
-            >
-              导出
-            </Button>
-          </div>
-        </div>
-      </Card>
-
-      {/* 地图和详情 */}
-      <Row gutter={16}>
-        <Col xs={24} lg={selectedShipment ? 12 : 24}>
-          <Card
-            title="货物地图"
-            styles={{ body: { padding: 0 } }}
-            style={{ height: '600px' }}
-          >
-            <MapViewer
-              mode={mapMode}
-              shipments={selectedShipment ? [selectedShipment] : shipments}
-              selectedShipment={selectedShipment}
-              onShipmentSelect={handleShipmentSelect}
-              mapEngine={mapEngine}
-              height="100%"
-            />
-          </Card>
-        </Col>
-        
-        {selectedShipment && (
-          <Col xs={24} lg={12}>
-            <Card
-              title="货物详情"
-              extra={
-                <Button
-                  type="text"
-                  onClick={() => setSelectedShipment(null)}
-                >
-                  关闭
-                </Button>
-              }
-              style={{ height: '600px', overflow: 'auto' }}
-            >
-              <div style={{ padding: '16px 0' }}>
-                <Row gutter={16}>
-                  <Col span={12}>
-                    <strong>名称:</strong>
-                    <div>{selectedShipment.name}</div>
-                  </Col>
-                  <Col span={12}>
-                    <strong>类型:</strong>
-                    <div>
-                      <Tag color={
-                        selectedShipment.type === '普通' ? 'blue' :
-                        selectedShipment.type === '易碎' ? 'orange' :
-                        selectedShipment.type === '危险品' ? 'red' :
-                        selectedShipment.type === '冷藏' ? 'cyan' :
-                        'default'
-                      }>
-                        {selectedShipment.type}
-                      </Tag>
-                    </div>
-                  </Col>
-                </Row>
-                
-                <Row gutter={16} style={{ marginTop: 16 }}>
-                  <Col span={8}>
-                    <strong>重量:</strong>
-                    <div>{formatWeight(selectedShipment.weight)}</div>
-                  </Col>
-                  <Col span={8}>
-                    <strong>体积:</strong>
-                    <div>{formatVolume(selectedShipment.volume)}</div>
-                  </Col>
-                  <Col span={8}>
-                    <strong>价值:</strong>
-                    <div>{formatCurrency(selectedShipment.value)}</div>
-                  </Col>
-                </Row>
-                
-                <Row gutter={16} style={{ marginTop: 16 }}>
-                  <Col span={12}>
-                    <strong>起点:</strong>
-                    <div>{selectedShipment.origin}</div>
-                  </Col>
-                  <Col span={12}>
-                    <strong>终点:</strong>
-                    <div>{selectedShipment.destination}</div>
-                  </Col>
-                </Row>
-                
-                <div style={{ marginTop: 16 }}>
-                  <strong>描述:</strong>
-                  <div>{selectedShipment.description || '暂无描述'}</div>
-                </div>
-                
-                <div style={{ marginTop: 16 }}>
-                  <strong>创建时间:</strong>
-                  <div>{new Date(selectedShipment.created_at).toLocaleString()}</div>
-                </div>
-              </div>
-            </Card>
-          </Col>
-        )}
-      </Row>
-
-      {/* 数据表格 */}
-      <Card style={{ marginTop: 24 }}>
-        <DataTable
-          title="货物列表"
-          data={shipments}
+      {/* 货物列表 */}
+      <Card title="货物列表">
+        <Table
           columns={columns}
-          loading={loading}
-          exportable
-          searchable
-          pagination
+          dataSource={shipments}
           rowKey="id"
-          style={{ marginTop: 16 }}
+          loading={loading}
+          pagination={{
+            total: shipments.length,
+            pageSize: 10,
+            showSizeChanger: true,
+            showQuickJumper: true,
+            showTotal: (total, range) => `第 ${range[0]}-${range[1]} 条/共 ${total} 条`
+          }}
+          scroll={{ x: 1200 }}
         />
       </Card>
     </div>

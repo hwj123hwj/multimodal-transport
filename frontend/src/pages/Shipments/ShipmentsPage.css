@@ -83,14 +83,6 @@
   color: #333;
 }
 
-/* 地图容器样式 */
-.shipments-page .map-container {
-  height: 100%;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
 /* 货物状态标签样式 */
 .shipments-page .status-tag {
   font-size: 12px;
@@ -196,18 +188,6 @@
   
   .shipments-page .ant-card-body {
     padding: 16px;
-  }
-  
-  .shipments-page .search-section {
-    padding: 12px;
-  }
-  
-  .shipments-page .search-section .ant-input-search {
-    max-width: 100%;
-  }
-  
-  .shipments-page .map-container {
-    height: 400px;
   }
 }
 
