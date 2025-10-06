@@ -123,8 +123,8 @@ const RoutesPage = () => {
   const columns = [
     {
       title: '路线ID',
-      dataIndex: 'id',
-      key: 'id',
+      dataIndex: 'route_id',
+      key: 'route_id',
       width: 80,
       sorter: (a, b) => a.id - b.id
     },
@@ -168,8 +168,8 @@ const RoutesPage = () => {
     },
     {
       title: '途经城市',
-      dataIndex: 'waypoints',
-      key: 'waypoints',
+      dataIndex: 'nodes',
+      key: 'nodes',
       ellipsis: true,
       render: (waypoints) => {
         if (!waypoints || !Array.isArray(waypoints) || waypoints.length === 0) {
@@ -177,23 +177,15 @@ const RoutesPage = () => {
         }
         return (
           <Space size="small" wrap>
-            {waypoints.slice(0, 3).map((city, index) => (
+            {waypoints.slice(0, 5).map((city, index) => (
               <Tag key={index} color="blue">{city}</Tag>
             ))}
-            {waypoints.length > 3 && (
+            {waypoints.length > 5 && (
               <Tag color="default">+{waypoints.length - 3}</Tag>
             )}
           </Space>
         );
       }
-    },
-    {
-      title: '创建时间',
-      dataIndex: 'created_at',
-      key: 'created_at',
-      width: 160,
-      render: (date) => new Date(date).toLocaleString(),
-      sorter: (a, b) => new Date(a.created_at) - new Date(b.created_at)
     },
     {
       title: '操作',
