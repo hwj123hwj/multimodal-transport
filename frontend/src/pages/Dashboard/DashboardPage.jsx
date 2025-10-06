@@ -79,7 +79,7 @@ export const DashboardPage = () => {
       const stats = {
         totalRoutes: routesData.length,
         totalShipments: shipmentsData.length,
-        totalMatches: matchingData.length,
+        totalMatches: matchingData[0].matched_shipments,
         pendingShipments: shipmentsData.filter(s => s.status === 'pending').length
       };
       setStatistics(stats);
@@ -160,7 +160,7 @@ export const DashboardPage = () => {
   // 获取匹配率
   const getMatchRate = () => {
     if (shipments.length === 0) return 0;
-    return Math.round((matchingResults.length / shipments.length) * 100);
+    return Math.round((matchingResults[0].matched_shipments / shipments.length) * 100);
   };
 
   return (
