@@ -303,7 +303,7 @@ const RoutesPage = () => {
                             routes={selectedRoute ? [selectedRoute] : routes}
                             shipments={[]}  // 添加缺失的属性
                             matchings={[]}  // 添加缺失的属性
-                            onRouteSelect={handleRouteSelect}
+                            onRouteClick={handleRouteSelect} // 使用正确的属性名
                             mapEngine={mapEngine}
                             height="100%"
                         />

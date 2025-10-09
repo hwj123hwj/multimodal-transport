@@ -326,12 +326,16 @@ const MapViewer = ({
   matchings = [],
   mode = 'routes',
   onRouteClick,
+  onRouteSelect, // 兼容旧属性名
   onShipmentClick,
   height = '500px',
   showControls = true,
   showLegend = true,
   mapEngine = 'baidu' // 'baidu' 或 'svg'
 }) => {
+  // 处理兼容性：如果传入了 onRouteSelect 但没有 onRouteClick，则使用 onRouteSelect
+  const handleRouteClick = onRouteClick || onRouteSelect;
+
   // 如果是SVG地图，直接返回SVG组件
   if (mapEngine === 'svg') {
     return (
@@ -340,7 +344,7 @@ const MapViewer = ({
         shipments={shipments}
         matchings={matchings}
         mode={mode}
-        onRouteClick={onRouteClick}
+        onRouteClick={handleRouteClick}
         onShipmentClick={onShipmentClick}
         height={height}
         showControls={showControls}
@@ -356,7 +360,7 @@ const MapViewer = ({
       shipments={shipments}
       matchings={matchings}
       mode={mode}
-      onRouteClick={onRouteClick}
+      onRouteClick={handleRouteClick}
       onShipmentClick={onShipmentClick}
       height={height}
       showControls={showControls}
