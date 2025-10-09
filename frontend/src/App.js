@@ -1,12 +1,13 @@
 import React from 'react';
 import {BrowserRouter as Router, Route, Routes, useLocation, useNavigate} from 'react-router-dom';
 import {ConfigProvider, Layout, Menu} from 'antd';
-import {CheckCircleOutlined, DashboardOutlined, ShoppingCartOutlined, TruckOutlined} from '@ant-design/icons';
+import {CheckCircleOutlined, DashboardOutlined, ShoppingCartOutlined, TruckOutlined, UploadOutlined} from '@ant-design/icons';
 import zhCN from 'antd/locale/zh_CN';
 import DashboardPage from './pages/Dashboard/DashboardPage';
 import RoutesPage from './pages/Routes/RoutesPage';
 import ShipmentsPage from './pages/Shipments/ShipmentsPage';
 import MatchingPage from './pages/Matching/MatchingPage';
+import DataUploadPage from './pages/DataUpload/DataUploadPage';
 import './App.css';
 
 const {Header, Sider, Content} = Layout;
@@ -36,6 +37,11 @@ const Navigation = ({collapsed, setCollapsed}) => {
             key: 'matching',
             icon: <CheckCircleOutlined/>,
             label: '匹配结果',
+        },
+        {
+            key: 'data-upload',
+            icon: <UploadOutlined/>,
+            label: '数据上传',
         }
     ];
 
@@ -71,6 +77,7 @@ const AppContent = () => {
             routes: '路线管理',
             shipments: '货物管理',
             matching: '匹配结果',
+            'data-upload': '数据上传与算法执行',
         };
         return titles[path] || '运输管理系统';
     };
@@ -99,6 +106,7 @@ const AppContent = () => {
                         <Route path="/routes" element={<RoutesPage/>}/>
                         <Route path="/shipments" element={<ShipmentsPage/>}/>
                         <Route path="/matching" element={<MatchingPage/>}/>
+                        <Route path="/data-upload" element={<DataUploadPage/>}/>
                     </Routes>
                 </Content>
             </Layout>

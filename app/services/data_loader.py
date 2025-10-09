@@ -29,12 +29,16 @@ class DataLoader:
         """加载货物数据
 
         Args:
-            filename: CSV文件名
+            filename: CSV文件名或完整路径
 
         Returns:
             ShipmentCollection: 货物集合
         """
-        file_path = self.data_dir / filename
+        # 如果传入的是完整路径，直接使用；否则拼接数据目录
+        if Path(filename).is_absolute():
+            file_path = Path(filename)
+        else:
+            file_path = self.data_dir / filename
 
         if not file_path.exists():
             raise FileNotFoundError(f"文件不存在: {file_path}")
@@ -59,12 +63,16 @@ class DataLoader:
         """加载路线数据
 
         Args:
-            filename: CSV文件名
+            filename: CSV文件名或完整路径
 
         Returns:
             RouteCollection: 路线集合
         """
-        file_path = self.data_dir / filename
+        # 如果传入的是完整路径，直接使用；否则拼接数据目录
+        if Path(filename).is_absolute():
+            file_path = Path(filename)
+        else:
+            file_path = self.data_dir / filename
 
         if not file_path.exists():
             raise FileNotFoundError(f"文件不存在: {file_path}")

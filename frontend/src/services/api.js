@@ -11,6 +11,15 @@ const api = axios.create({
     },
 });
 
+// 文件上传专用API实例
+const uploadApi = axios.create({
+    baseURL: API_BASE_URL,
+    timeout: 30000, // 30秒超时，适合大文件上传
+    headers: {
+        'Content-Type': 'multipart/form-data',
+    },
+});
+
 // 请求拦截器
 api.interceptors.request.use(
     (config) => {
@@ -38,6 +47,18 @@ api.interceptors.response.use(
     }
 );
 
+// 文件上传API的响应拦截器
+uploadApi.interceptors.response.use(
+    (response) => {
+        return response.data;
+    },
+    (error) => {
+        const errorMessage = error.response?.data?.message || error.message || '请求失败';
+        message.error(errorMessage);
+        return Promise.reject(new Error(errorMessage));
+    }
+);
+
 // API方法
 export const routesAPI = {
     getAll: () => api.get('/routes'),
@@ -55,6 +76,123 @@ export const matchingAPI = {
     getMatching: () => api.get(`/shipment-route-mapping`),
     getShipment: (id) => api.get(`/shipment/${id}`),
     getRoute: (id) => api.get(`/route/${id}`),
+};
+
+// 数据上传API
+export const uploadDataAPI = {
+    /**
+     * 上传数据文件
+     * @param {FormData} formData - 包含文件的FormData对象
+     * @returns {Promise} 上传结果
+     */
+    uploadFiles: async (formData) => {
+        try {
+            const response = await uploadApi.post('/data/upload', formData, {
+                onUploadProgress: (progressEvent) => {
+                    const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                    console.log(`上传进度: ${percentCompleted}%`);
+                },
+            });
+            return response;
+        } catch (error) {
+            console.error('文件上传失败:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * 获取上传历史记录
+     * @returns {Promise} 上传历史记录
+     */
+    getUploadHistory: async () => {
+        try {
+            const response = await api.get('/data/upload-history');
+            return response;
+        } catch (error) {
+            console.error('获取上传历史失败:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * 获取数据文件列表
+     * @returns {Promise} 文件列表
+     */
+    getFileList: async () => {
+        try {
+            const response = await api.get('/data/files');
+            return response;
+        } catch (error) {
+            console.error('获取文件列表失败:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * 预览数据文件内容
+     * @param {string} filename - 文件名
+     * @param {number} limit - 预览行数限制
+     * @returns {Promise} 文件内容预览
+     */
+    previewFile: async (filename, limit = 10) => {
+        try {
+            const response = await api.get(`/data/files/${filename}/preview`, {
+                params: { limit },
+            });
+            return response;
+        } catch (error) {
+            console.error('预览文件失败:', error);
+            throw error;
+        }
+    },
+};
+
+// 算法执行API
+export const executeAlgorithmAPI = {
+    /**
+     * 执行匹配算法
+     * @param {Object} params - 算法参数
+     * @returns {Promise} 执行结果
+     */
+    runMatching: async (params = {}) => {
+        try {
+            const response = await api.post('/algorithm/matching', params, {
+                timeout: 300000, // 5分钟超时
+            });
+            return response;
+        } catch (error) {
+            console.error('算法执行失败:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * 获取算法执行状态
+     * @returns {Promise} 算法状态
+     */
+    getAlgorithmStatus: async () => {
+        try {
+            const response = await api.get('/algorithm/status');
+            return response;
+        } catch (error) {
+            console.error('获取算法状态失败:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * 获取算法执行历史
+     * @returns {Promise} 执行历史
+     */
+    getExecutionHistory: async () => {
+        try {
+            const response = await api.get('/algorithm/history');
+            return response;
+        } catch (error) {
+            console.error('获取执行历史失败:', error);
+            throw error;
+        }
+    },
 };
 
 export default api;
