@@ -21,7 +21,7 @@ class DataService:
         """
         self.data_loader = data_loader
         self._cached_data = {}
-        
+
         # 城市坐标信息（直接在程序中定义）
         self.city_coordinates = {
             0: {"name": "成都", "longitude": 104.0668, "latitude": 30.5728},
@@ -77,7 +77,7 @@ class DataService:
             for shipment in shipments.shipments.values():
                 origin_coord = self.city_coordinates.get(shipment.origin_node, {})
                 dest_coord = self.city_coordinates.get(shipment.destination_node, {})
-                
+
                 all_shipments.append({
                     "shipment_id": shipment.shipment_id,
                     "origin_node": shipment.origin_node,
@@ -139,13 +139,14 @@ class DataService:
                         "longitude": coord_info.get("longitude"),
                         "latitude": coord_info.get("latitude")
                     })
-                
+
                 # 计算路线的地理距离（基于经纬度）
                 total_distance = self._calculate_route_distance(node_details)
-                
+
                 all_routes.append({
                     "route_id": route.route_id,
-                    "nodes": route.nodes,
+                    "nodes": [self.city_coordinates.get(node_id, {}).get("name", f"未知城市({node_id})") for node_id in
+                              route.nodes],
                     "node_details": node_details,
                     "costs": route.costs,
                     "travel_times": route.travel_times,
@@ -194,24 +195,24 @@ class DataService:
             # 获取第一个匹配结果的详细信息
             matching = matchings[0]
             matching_dict = matching.to_dict()
-            
+
             # 确保货物数据已加载
             if 'shipments' not in self._cached_data:
                 self._cached_data['shipments'] = self.data_loader.load_shipments()
             shipments_data = self._cached_data['shipments']
-            
+
             # 为匹配结果添加地理信息
             enriched_shipments = []
             for shipment_info in matching_dict.get('shipments', []):
                 shipment_id = shipment_info.get('shipment_id')
                 assigned_route = shipment_info.get('assigned_route')
-                
+
                 # 获取货物信息以添加地理坐标
                 if shipments_data and shipment_id in shipments_data.shipments:
                     shipment = shipments_data.shipments[shipment_id]
                     origin_coord = self.city_coordinates.get(shipment.origin_node, {})
                     dest_coord = self.city_coordinates.get(shipment.destination_node, {})
-                    
+
                     enriched_shipments.append({
                         "shipment_id": shipment_id,
                         "assigned_route": assigned_route,
@@ -228,7 +229,7 @@ class DataService:
                     })
                 else:
                     enriched_shipments.append(shipment_info)
-            
+
             matching_dict['shipments'] = enriched_shipments
 
             return {
@@ -238,7 +239,6 @@ class DataService:
         except Exception as e:
             logger.error(f"获取匹配结果数据失败: {str(e)}")
             raise
-
 
     def _calculate_route_distance(self, node_details: List[Dict[str, Any]]) -> float:
         """计算路线的地理距离（基于经纬度，使用Haversine公式）
@@ -250,38 +250,38 @@ class DataService:
             float: 总距离（公里）
         """
         import math
-        
+
         if len(node_details) < 2:
             return 0.0
-            
+
         total_distance = 0.0
-        
+
         for i in range(len(node_details) - 1):
             current = node_details[i]
             next_node = node_details[i + 1]
-            
+
             # 获取经纬度
             lat1, lon1 = current.get("latitude"), current.get("longitude")
             lat2, lon2 = next_node.get("latitude"), next_node.get("longitude")
-            
+
             if lat1 is None or lon1 is None or lat2 is None or lon2 is None:
                 continue
-                
+
             # 转换为弧度
             lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
-            
+
             # Haversine公式
             dlat = lat2 - lat1
             dlon = lon2 - lon1
-            a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
+            a = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
             c = 2 * math.asin(math.sqrt(a))
-            
+
             # 地球半径（公里）
             r = 6371
             distance = c * r
-            
+
             total_distance += distance
-            
+
         return round(total_distance, 2)
 
     def search_shipments_by_destination(self, destination: str) -> List[Dict[str, Any]]:
@@ -309,7 +309,7 @@ class DataService:
             for shipment in matching_shipments:
                 origin_coord = self.city_coordinates.get(shipment["origin_node"], {})
                 dest_coord = self.city_coordinates.get(shipment["destination_node"], {})
-                
+
                 shipment["origin_city"] = origin_coord.get("name", f"未知城市({shipment['origin_node']})")
                 shipment["origin_longitude"] = origin_coord.get("longitude")
                 shipment["origin_latitude"] = origin_coord.get("latitude")
@@ -364,11 +364,11 @@ class DataService:
         """
         try:
             routes_data = self.get_all_routes()
-            
+
             for route in routes_data["routes"]:
                 if route["route_id"] == route_id:
                     return route
-            
+
             return None
         except Exception as e:
             logger.error(f"根据路线ID获取路线详情失败: {str(e)}")

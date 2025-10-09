@@ -301,7 +301,8 @@ const RoutesPage = () => {
                         <MapViewer
                             mode={mapMode}
                             routes={selectedRoute ? [selectedRoute] : routes}
-                            selectedRoute={selectedRoute}
+                            shipments={[]}  // 添加缺失的属性
+                            matchings={[]}  // 添加缺失的属性
                             onRouteSelect={handleRouteSelect}
                             mapEngine={mapEngine}
                             height="100%"
@@ -327,12 +328,10 @@ const RoutesPage = () => {
                                 <Row gutter={16}>
                                     <Col span={12}>
                                         <strong>起点:</strong>
-                                        // 修改这里：从nodes数组获取起点
                                         <div>{selectedRoute.nodes && selectedRoute.nodes.length > 0 ? selectedRoute.nodes[0] : '-'}</div>
                                     </Col>
                                     <Col span={12}>
                                         <strong>终点:</strong>
-                                        // 修改这里：从nodes数组获取终点
                                         <div>{selectedRoute.nodes && selectedRoute.nodes.length > 0 ? selectedRoute.nodes[selectedRoute.nodes.length - 1] : '-'}</div>
                                     </Col>
                                 </Row>
@@ -356,7 +355,6 @@ const RoutesPage = () => {
                                     <strong>途经城市:</strong>
                                     <div style={{marginTop: 8}}>
                                         <Space size="small" wrap>
-                                            // 修改这里：使用nodes数组
                                             {selectedRoute.nodes && selectedRoute.nodes.map((city, index) => (
                                                 <Tag key={index} color={ROUTE_COLORS[index % ROUTE_COLORS.length]}>
                                                     {city}
