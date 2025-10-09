@@ -9,7 +9,6 @@ import {
     TruckOutlined
 } from '@ant-design/icons';
 import MapViewer from '../../components/MapViewer/MapViewer';
-import DataTable from '../../components/DataTable/DataTable';
 import {matchingAPI, routesAPI, shipmentsAPI} from '../../services/api';
 import * as formatters from '../../utils/formatters';
 import './DashboardPage.css';
@@ -50,6 +49,7 @@ export const DashboardPage = () => {
     const [routes, setRoutes] = useState([]);
     const [shipments, setShipments] = useState([]);
     const [matchingResults, setMatchingResults] = useState([]);
+    const [matchRoutesShipmentsData, setmatchRoutesShipmentsData] = useState([]);
     const [statistics, setStatistics] = useState({
         totalRoutes: 0,
         totalShipments: 0,
@@ -61,19 +61,22 @@ export const DashboardPage = () => {
     const loadData = async () => {
         setLoading(true);
         try {
-            const [routesRes, shipmentsRes, matchingRes] = await Promise.all([
+            const [routesRes, shipmentsRes, matchingRes, matchRoutesShipments] = await Promise.all([
                 routesAPI.getAll(),
                 shipmentsAPI.getAll(),
-                matchingAPI.getAll()
+                matchingAPI.getAll(),
+                matchingAPI.getMatching()
             ]);
 
             const routesData = routesRes.data?.routes || routesRes.data || [];
             const shipmentsData = shipmentsRes.data?.shipments || shipmentsRes.data || [];
             const matchingData = matchingRes.data?.matchings || matchingRes.data || [];
+            const matchRoutesShipmentsData = matchRoutesShipments.data || [];
 
             setRoutes(routesData);
             setShipments(shipmentsData);
             setMatchingResults(matchingData);
+            setmatchRoutesShipmentsData(matchRoutesShipmentsData);
 
             // 计算统计数据
             const stats = {
@@ -122,14 +125,14 @@ export const DashboardPage = () => {
 
     // 获取最近匹配结果
     const getRecentMatches = () => {
-        return matchingResults
+        return matchRoutesShipmentsData
             .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
             .slice(0, 10)
             .map(match => ({
                 ...match,
                 key: match.id,
-                routeName: match.route?.name || '未知路线',
-                shipmentName: match.shipment?.name || '未知货物',
+                route_id: match.route_id || '未知路线',
+                shipment_id: match.shipment_id || '未知货物',
                 matchScore: formatters.formatPercentage(match.matchScore),
                 statusText: getMatchStatusText(match.status)
             }));
@@ -270,15 +273,15 @@ export const DashboardPage = () => {
                                 >
                                     <Column
                                         title="路线"
-                                        dataIndex="routeName"
-                                        key="routeName"
+                                        dataIndex="route_id"
+                                        key="route_id"
                                         width={120}
                                         ellipsis
                                     />
                                     <Column
                                         title="货物"
-                                        dataIndex="shipmentName"
-                                        key="shipmentName"
+                                        dataIndex="shipment_id"
+                                        key="shipment_id"
                                         width={120}
                                         ellipsis
                                     />
@@ -312,36 +315,6 @@ export const DashboardPage = () => {
                                 <Empty description="暂无匹配结果"/>
                             )}
                         </div>
-                    </Card>
-                </Col>
-            </Row>
-
-            {/* 数据表格概览 */}
-            <Row gutter={16} className="tables-row">
-                <Col xs={24} lg={12}>
-                    <Card title="最近路线" className="routes-card">
-                        <DataTable
-                            data={routes.slice(0, 10)}
-                            loading={loading}
-                            showSearch={false}
-                            showFilter={false}
-                            showExport={false}
-                            compactMode={true}
-                            pagination={false}
-                        />
-                    </Card>
-                </Col>
-                <Col xs={24} lg={12}>
-                    <Card title="最近货物" className="shipments-card">
-                        <DataTable
-                            data={shipments.slice(0, 10)}
-                            loading={loading}
-                            showSearch={false}
-                            showFilter={false}
-                            showExport={false}
-                            compactMode={true}
-                            pagination={false}
-                        />
                     </Card>
                 </Col>
             </Row>
