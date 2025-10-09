@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Button, Card, Space} from 'antd';
 import {ExpandOutlined, ReloadOutlined, ShrinkOutlined} from '@ant-design/icons';
 import './MapViewer.css';
@@ -20,8 +20,7 @@ const SVGMapViewer = ({
     const [selectedRoute, setSelectedRoute] = useState(null);
     const [selectedShipment, setSelectedShipment] = useState(null);
 
-    // 城市坐标数据
-    const cityCoordinates = {
+    const cityCoordinates = useMemo(() => ({
         0: {"name": "成都", "longitude": 104.0668, "latitude": 30.5728},
         1: {"name": "重庆", "longitude": 106.5516, "latitude": 29.5630},
         2: {"name": "贵阳", "longitude": 106.7074, "latitude": 26.5982},
@@ -31,7 +30,8 @@ const SVGMapViewer = ({
         6: {"name": "胡志明", "longitude": 106.6951, "latitude": 10.8231},
         7: {"name": "曼谷", "longitude": 100.5018, "latitude": 13.7563},
         8: {"name": "新加坡", "longitude": 103.8198, "latitude": 1.3521}
-    };
+    }), []); // 空依赖数组，确保对象只创建一次
+
 
     // 获取所有涉及的城市
     const getRequiredCities = useCallback(() => {
@@ -59,7 +59,7 @@ const SVGMapViewer = ({
         });
 
         return Array.from(cities);
-    }, [routes, shipments]);
+    }, [routes, shipments, cityCoordinates]);
 
     // 将经纬度转换为SVG坐标
     const convertToSVGCoordinates = useCallback((longitude, latitude) => {
@@ -82,7 +82,7 @@ const SVGMapViewer = ({
         const y = padding + (maxLat - latitude) / (maxLat - minLat) * (svgHeight - 2 * padding);
 
         return {x, y};
-    }, []);
+    }, [cityCoordinates]);
 
     // 获取城市信息
     const getCityInfo = useCallback((cityId) => {
