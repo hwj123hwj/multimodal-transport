@@ -18,6 +18,31 @@ data_service = DataService(data_loader)
 matching_service = MatchingService(data_loader)
 
 
+@router.get("/shipment-route-mapping")
+async def get_shipment_route_mapping():
+    """获取货物与路线映射关系"""
+    try:
+        matchings = matching_service.get_all_matchings()
+
+        # 构建货物-路线映射数组
+        shipment_route_list = []
+        for matching in matchings:
+            for shipment in matching.get("shipments", []):
+                shipment_route_list.append({
+                    "id": len(shipment_route_list) + 1,  # 自增ID
+                    "route_id": shipment.get("assigned_route"),
+                    "shipment_id": shipment.get("shipment_id")
+                })
+
+        return {
+            "status": "success",
+            "data": shipment_route_list,
+            "count": len(shipment_route_list)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取货物路线映射失败: {str(e)}")
+
+
 @router.get("/matchings")
 async def get_all_matchings():
     """获取所有匹配结果"""

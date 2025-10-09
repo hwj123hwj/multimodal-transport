@@ -10,7 +10,6 @@ import {
 } from '@ant-design/icons';
 import MapViewer from '../../components/MapViewer/MapViewer';
 import {matchingAPI, routesAPI, shipmentsAPI} from '../../services/api';
-import * as formatters from '../../utils/formatters';
 import './DashboardPage.css';
 
 // CSV转换函数
@@ -49,7 +48,7 @@ export const DashboardPage = () => {
     const [routes, setRoutes] = useState([]);
     const [shipments, setShipments] = useState([]);
     const [matchingResults, setMatchingResults] = useState([]);
-    const [matchRoutesShipmentsData, setmatchRoutesShipmentsData] = useState([]);
+    const [matchRoutesShipmentsData, setMatchRoutesShipmentsData] = useState([]);
     const [statistics, setStatistics] = useState({
         totalRoutes: 0,
         totalShipments: 0,
@@ -76,7 +75,7 @@ export const DashboardPage = () => {
             setRoutes(routesData);
             setShipments(shipmentsData);
             setMatchingResults(matchingData);
-            setmatchRoutesShipmentsData(matchRoutesShipmentsData);
+            setMatchRoutesShipmentsData(matchRoutesShipmentsData);
 
             // 计算统计数据
             const stats = {
@@ -126,38 +125,16 @@ export const DashboardPage = () => {
     // 获取最近匹配结果
     const getRecentMatches = () => {
         return matchRoutesShipmentsData
-            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+            .sort((a, b) => b.id - a.id) // 按ID倒序排列
             .slice(0, 10)
             .map(match => ({
                 ...match,
                 key: match.id,
-                route_id: match.route_id || '未知路线',
-                shipment_id: match.shipment_id || '未知货物',
-                matchScore: formatters.formatPercentage(match.matchScore),
-                statusText: getMatchStatusText(match.status)
+                routeName: match.route_id !== 'Self' ? `路线${match.route_id}` : '未分配',
+                shipmentName: `货物${match.shipment_id}`,
+                status: match.route_id !== 'Self' ? '已匹配' : '未匹配',
+                statusColor: match.route_id !== 'Self' ? 'green' : 'red'
             }));
-    };
-
-    // 获取匹配状态文本
-    const getMatchStatusText = (status) => {
-        const statusMap = {
-            'perfect': '完美匹配',
-            'good': '良好匹配',
-            'fair': '一般匹配',
-            'poor': '较差匹配'
-        };
-        return statusMap[status] || status;
-    };
-
-    // 获取匹配状态颜色
-    const getMatchStatusColor = (status) => {
-        const colorMap = {
-            'perfect': 'green',
-            'good': 'blue',
-            'fair': 'orange',
-            'poor': 'red'
-        };
-        return colorMap[status] || 'default';
     };
 
     // 获取匹配率
@@ -272,40 +249,27 @@ export const DashboardPage = () => {
                                     scroll={{y: 400}}
                                 >
                                     <Column
-                                        title="路线"
-                                        dataIndex="route_id"
-                                        key="route_id"
-                                        width={120}
-                                        ellipsis
-                                    />
-                                    <Column
                                         title="货物"
-                                        dataIndex="shipment_id"
-                                        key="shipment_id"
+                                        dataIndex="shipmentName"
+                                        key="shipmentName"
                                         width={120}
                                         ellipsis
                                     />
                                     <Column
-                                        title="匹配度"
-                                        dataIndex="matchScore"
-                                        key="matchScore"
-                                        width={80}
-                                        align="center"
-                                        render={(text, record) => (
-                                            <span
-                                                style={{fontWeight: 'bold', color: getMatchStatusColor(record.status)}}>
-                        {text}
-                      </span>
-                                        )}
+                                        title="路线"
+                                        dataIndex="routeName"
+                                        key="routeName"
+                                        width={120}
+                                        ellipsis
                                     />
                                     <Column
                                         title="状态"
-                                        dataIndex="statusText"
-                                        key="statusText"
+                                        dataIndex="status"
+                                        key="status"
                                         width={80}
                                         align="center"
                                         render={(text, record) => (
-                                            <Tag color={getMatchStatusColor(record.status)}>
+                                            <Tag color={record.statusColor}>
                                                 {text}
                                             </Tag>
                                         )}
