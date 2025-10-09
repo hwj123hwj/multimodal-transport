@@ -81,13 +81,20 @@ export const matchingAPI = {
 // 数据上传API
 export const uploadDataAPI = {
     /**
-     * 上传数据文件
-     * @param {FormData} formData - 包含文件的FormData对象
+     * 上传单个数据文件
+     * @param {File} file - 要上传的文件
+     * @param {string} fileType - 文件类型 (shipment 或 route)
+     * @param {string} description - 文件描述
      * @returns {Promise} 上传结果
      */
-    uploadFiles: async (formData) => {
+    uploadFile: async (file, fileType, description = '') => {
         try {
-            const response = await uploadApi.post('/data/upload', formData, {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('file_type', fileType);
+            formData.append('description', description);
+
+            const response = await uploadApi.post('/upload', formData, {
                 onUploadProgress: (progressEvent) => {
                     const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
                     console.log(`上传进度: ${percentCompleted}%`);
@@ -106,7 +113,7 @@ export const uploadDataAPI = {
      */
     getUploadHistory: async () => {
         try {
-            const response = await api.get('/data/upload-history');
+            const response = await api.get('/uploads');
             return response;
         } catch (error) {
             console.error('获取上传历史失败:', error);
@@ -115,33 +122,31 @@ export const uploadDataAPI = {
     },
 
     /**
-     * 获取数据文件列表
-     * @returns {Promise} 文件列表
+     * 预览数据文件内容
+     * @param {string} filename - 文件名
+     * @returns {Promise} 文件内容预览
      */
-    getFileList: async () => {
+    previewFile: async (filename) => {
         try {
-            const response = await api.get('/data/files');
+            const response = await api.get(`/uploads/preview/${filename}`);
             return response;
         } catch (error) {
-            console.error('获取文件列表失败:', error);
+            console.error('预览文件失败:', error);
             throw error;
         }
     },
 
     /**
-     * 预览数据文件内容
+     * 删除上传的文件
      * @param {string} filename - 文件名
-     * @param {number} limit - 预览行数限制
-     * @returns {Promise} 文件内容预览
+     * @returns {Promise} 删除结果
      */
-    previewFile: async (filename, limit = 10) => {
+    deleteFile: async (filename) => {
         try {
-            const response = await api.get(`/data/files/${filename}/preview`, {
-                params: { limit },
-            });
+            const response = await api.delete(`/uploads/${filename}`);
             return response;
         } catch (error) {
-            console.error('预览文件失败:', error);
+            console.error('删除文件失败:', error);
             throw error;
         }
     },

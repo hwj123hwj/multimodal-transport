@@ -3,11 +3,14 @@
 提供匹配算法的REST API接口
 """
 from fastapi import APIRouter, HTTPException
+import logging
 
 from ..config import get_data_dir
 from ..services.data_loader import DataLoader
 from ..services.data_service import DataService
 from ..services.matching_service import MatchingService
+
+logger = logging.getLogger(__name__)
 
 # 创建路由实例
 router = APIRouter(prefix="/api", tags=["matching"])
@@ -67,7 +70,25 @@ async def get_matching_summary():
             "data": summary
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"获取匹配摘要失败: {str(e)}")
+        logger.error(f"获取匹配摘要失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/matching/execute")
+async def execute_matching_algorithm():
+    """执行匹配算法"""
+    try:
+        result = matching_service.execute_matching_algorithm()
+        return result
+    except FileNotFoundError as e:
+        logger.error(f"执行匹配算法失败 - 文件缺失: {str(e)}")
+        raise HTTPException(status_code=404, detail=str(e))
+    except RuntimeError as e:
+        logger.error(f"执行匹配算法失败 - 运行时错误: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        logger.error(f"执行匹配算法失败 - 未知错误: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"执行匹配算法失败: {str(e)}")
 
 
 @router.get("/shipment/{shipment_id}")

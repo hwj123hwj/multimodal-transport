@@ -105,10 +105,14 @@ class DataLoader:
         Returns:
             List[StableMatching]: 匹配列表
         """
-        file_path = self.data_dir / filename
-
+        # C++程序输出文件在cmake-build-debug/result目录下
+        file_path = Path("cmake-build-debug") / "result" / filename
+        
         if not file_path.exists():
-            raise FileNotFoundError(f"文件不存在: {file_path}")
+            # 如果不在result目录，尝试从数据目录加载（向后兼容）
+            file_path = self.data_dir / filename
+            if not file_path.exists():
+                raise FileNotFoundError(f"文件不存在: {file_path}")
 
         matchings = []
         with open(file_path, 'r', encoding='utf-8') as file:

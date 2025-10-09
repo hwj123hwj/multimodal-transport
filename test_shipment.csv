@@ -1,4 +1,0 @@
-shipment_id,origin,destination,weight,volume,cargo_type,time_window_start,time_window_end,max_cost
-SHIP001,北京,上海,1000,50,电子产品,2024-01-01 08:00,2024-01-02 20:00,5000
-SHIP002,广州,深圳,2000,100,服装,2024-01-01 09:00,2024-01-03 18:00,3000
-SHIP003,成都,重庆,1500,75,食品,2024-01-01 10:00,2024-01-02 22:00,2500

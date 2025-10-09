@@ -186,9 +186,6 @@ const ShipmentsPage = () => {
                     <Button size="small" type="primary" ghost>
                         详情
                     </Button>
-                    <Button size="small" type="default">
-                        编辑
-                    </Button>
                 </div>
             )
         }

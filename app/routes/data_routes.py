@@ -91,24 +91,20 @@ async def upload_data_file(
                 detail="只支持CSV格式的文件"
             )
 
-        # 生成唯一文件名
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        file_id = str(uuid.uuid4())[:8]
-        filename = f"{file_type}_{timestamp}_{file_id}.csv"
+        # 固定文件名：route类型为route.csv，shipment类型为shipment.csv
+        filename = f"{file_type}.csv"
 
-        # 确保上传目录存在
-        upload_dir = Path(get_data_dir()) / "uploads"
-        upload_dir.mkdir(exist_ok=True)
+        # 文件保存在data目录下（不是uploads子目录）
+        data_dir = Path(get_data_dir())
+        file_path = data_dir / filename
 
-        file_path = upload_dir / filename
-
-        # 保存文件
+        # 保存文件（直接覆盖）
         contents = await file.read()
         print(f"保存文件到: {file_path}")
         print(f"文件大小: {len(contents)} 字节")
         with open(file_path, 'wb') as f:
             f.write(contents)
-        
+
         # 确认文件已保存
         if file_path.exists():
             print(f"文件已成功保存，大小: {file_path.stat().st_size} 字节")
@@ -142,7 +138,6 @@ async def upload_data_file(
             "status": "success",
             "message": "文件上传成功",
             "data": {
-                "file_id": file_id,
                 "filename": filename,
                 "original_filename": file.filename,
                 "file_type": file_type,
@@ -166,44 +161,25 @@ async def upload_data_file(
 async def get_upload_history() -> Dict[str, Any]:
     """获取上传历史记录"""
     try:
-        upload_dir = Path(get_data_dir()) / "uploads"
-
-        if not upload_dir.exists():
-            return {
-                "status": "success",
-                "data": {
-                    "total_files": 0,
-                    "files": []
-                }
-            }
-
+        data_dir = Path(get_data_dir())
         files = []
-        for file_path in upload_dir.glob("*.csv"):
-            try:
-                stat = file_path.stat()
-                filename = file_path.name
-
-                # 从文件名解析文件类型
-                if filename.startswith("shipment"):
-                    file_type = "shipment"
-                elif filename.startswith("route"):
-                    file_type = "route"
-                else:
-                    file_type = "unknown"
-
-                files.append({
-                    "filename": filename,
-                    "file_type": file_type,
-                    "file_size": stat.st_size,
-                    "upload_time": datetime.fromtimestamp(stat.st_mtime).isoformat(),
-                    "file_path": str(file_path)
-                })
-            except Exception as e:
-                print(f"处理文件 {file_path} 时出错: {e}")
-                continue
-
-        # 按上传时间排序（最新的在前）
-        files.sort(key=lambda x: x["upload_time"], reverse=True)
+        
+        # 检查固定的两个文件
+        for file_type, filename in [("route", "route.csv"), ("shipment", "shipment.csv")]:
+            file_path = data_dir / filename
+            if file_path.exists():
+                try:
+                    stat = file_path.stat()
+                    files.append({
+                        "filename": filename,
+                        "file_type": file_type,
+                        "file_size": stat.st_size,
+                        "upload_time": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                        "file_path": str(file_path)
+                    })
+                except Exception as e:
+                    print(f"处理文件 {file_path} 时出错: {e}")
+                    continue
 
         return {
             "status": "success",
@@ -224,8 +200,15 @@ async def get_upload_history() -> Dict[str, Any]:
 async def preview_uploaded_file(filename: str) -> Dict[str, Any]:
     """预览上传的文件内容"""
     try:
-        upload_dir = Path(get_data_dir()) / "uploads"
-        file_path = upload_dir / filename
+        # 只允许预览固定的两个文件
+        if filename not in ["route.csv", "shipment.csv"]:
+            raise HTTPException(
+                status_code=404,
+                detail=f"不允许预览的文件: {filename}"
+            )
+
+        data_dir = Path(get_data_dir())
+        file_path = data_dir / filename
 
         if not file_path.exists():
             raise HTTPException(
@@ -247,10 +230,10 @@ async def preview_uploaded_file(filename: str) -> Dict[str, Any]:
                 detail=f"读取文件失败: {str(e)}"
             )
 
-        # 从文件名解析文件类型
-        if filename.startswith("shipment"):
+        # 从文件名确定文件类型
+        if filename == "shipment.csv":
             file_type = "shipment"
-        elif filename.startswith("route"):
+        elif filename == "route.csv":
             file_type = "route"
         else:
             file_type = "unknown"
@@ -279,8 +262,15 @@ async def preview_uploaded_file(filename: str) -> Dict[str, Any]:
 async def delete_uploaded_file(filename: str) -> Dict[str, Any]:
     """删除上传的文件"""
     try:
-        upload_dir = Path(get_data_dir()) / "uploads"
-        file_path = upload_dir / filename
+        # 只允许删除固定的两个文件
+        if filename not in ["route.csv", "shipment.csv"]:
+            raise HTTPException(
+                status_code=404,
+                detail=f"不允许删除的文件: {filename}"
+            )
+
+        data_dir = Path(get_data_dir())
+        file_path = data_dir / filename
 
         if not file_path.exists():
             raise HTTPException(
