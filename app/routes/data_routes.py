@@ -2,7 +2,6 @@
 基础数据API路由
 提供网络、货物、路线、匹配等基础数据的REST API接口，以及文件上传功能
 """
-import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any
@@ -163,7 +162,7 @@ async def get_upload_history() -> Dict[str, Any]:
     try:
         data_dir = Path(get_data_dir())
         files = []
-        
+
         # 检查固定的两个文件
         for file_type, filename in [("route", "route.csv"), ("shipment", "shipment.csv")]:
             file_path = data_dir / filename

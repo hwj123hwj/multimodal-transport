@@ -161,7 +161,7 @@ export const executeAlgorithmAPI = {
      */
     runMatching: async (params = {}) => {
         try {
-            const response = await api.post('/algorithm/matching', params, {
+            const response = await api.post('/matching/execute', params, {
                 timeout: 300000, // 5分钟超时
             });
             return response;
