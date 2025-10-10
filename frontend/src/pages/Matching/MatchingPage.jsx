@@ -3,7 +3,7 @@ import {Button, Card, Col, message, Row, Select, Space, Statistic, Tag} from 'an
 import {AimOutlined, CheckCircleOutlined, ExportOutlined, ReloadOutlined} from '@ant-design/icons';
 import MapViewer from '../../components/MapViewer/MapViewer';
 import DataTable from '../../components/DataTable/DataTable';
-import {matchingAPI, routesAPI, shipmentsAPI} from '../../services/api';
+import {matchingAPI} from '../../services/api';
 import {formatCurrency, formatTime} from '../../utils/formatters';
 import {MATCHING_STATUS} from '../../utils/constants';
 
@@ -11,12 +11,10 @@ const {Option} = Select;
 
 const MatchingPage = () => {
     const [matchingResults, setMatchingResults] = useState([]);
-    const [routes, setRoutes] = useState([]);
-    const [shipments, setShipments] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [matchTable, setMatchTable] = useState([]);
+    const [loading, setLoading] = useState(false);
     const [selectedResult, setSelectedResult] = useState(null);
-    const [mapMode, setMapMode] = useState('matching');
-    const [mapEngine, setMapEngine] = useState('baidu'); // 'baidu' 或 'svg'
+    const [mapEngine, setMapEngine] = useState('baidu');
     const [statistics, setStatistics] = useState({
         totalMatches: 0,
         matchedRoutes: 0,
@@ -29,47 +27,24 @@ const MatchingPage = () => {
         try {
             setLoading(true);
 
-            // 获取匹配结果
-            const [matchingResponse, routesResponse, shipmentsResponse] = await Promise.all([
-                matchingAPI.getAll(),
-                routesAPI.getAll(),
-                shipmentsAPI.getAll()
-            ]);
-
-            let matches = matchingResponse.data;
-            let routesData = routesResponse.data;
-            let shipmentsData = shipmentsResponse.data;
-
-            // 确保数据是数组
-            if (!Array.isArray(matches)) {
-                matches = matches?.matches || matches?.data || [];
-            }
-            if (!Array.isArray(routesData)) {
-                routesData = routesData?.routes || routesData?.data || [];
-            }
-            if (!Array.isArray(shipmentsData)) {
-                shipmentsData = shipmentsData?.shipments || shipmentsData?.data || [];
+            // 使用新的详细接口获取匹配结果
+            const detailedResponse = await matchingAPI.getDetailed();
+            
+            let detailedMatchings = detailedResponse.data;
+            if (!Array.isArray(detailedMatchings)) {
+                detailedMatchings = detailedMatchings?.data || [];
             }
 
-            // 根据匹配结果更新货物的分配状态
-            const updatedShipments = shipmentsData.map(shipment => {
-                const matchedResult = matches.find(m => m.shipment_id === shipment.id && m.status === 'matched');
-                return {
-                    ...shipment,
-                    assigned_route: matchedResult ? matchedResult.route_id : null
-                };
-            });
-
-            setMatchingResults(matches);
-            setRoutes(routesData);
-            setShipments(updatedShipments);
+            // 直接使用详细数据，无需额外查询
+            setMatchingResults(detailedMatchings);
+            setMatchTable(detailedMatchings);
 
             // 计算统计信息
             const stats = {
-                totalMatches: matches.length,
-                matchedRoutes: new Set(matches.map(m => m.route_id)).size,
-                matchedShipments: new Set(matches.map(m => m.shipment_id)).size,
-                avgMatchScore: matches.length > 0 ? matches.reduce((sum, m) => sum + (m.match_score || 0), 0) / matches.length : 0
+                totalMatches: detailedMatchings.length,
+                matchedRoutes: new Set(detailedMatchings.filter(m => m.status === 'matched').map(m => m.route_id)).size,
+                matchedShipments: new Set(detailedMatchings.filter(m => m.status === 'matched').map(m => m.shipment_id)).size,
+                avgMatchScore: detailedMatchings.length > 0 ? detailedMatchings.reduce((sum, m) => sum + (m.match_score || 0), 0) / detailedMatchings.length : 0
             };
             setStatistics(stats);
 
@@ -78,8 +53,7 @@ const MatchingPage = () => {
             console.error('获取匹配结果失败:', error);
             message.error('获取匹配结果失败');
             setMatchingResults([]);
-            setRoutes([]);
-            setShipments([]);
+            setMatchTable([]);
             setStatistics({
                 totalMatches: 0,
                 matchedRoutes: 0,
@@ -94,7 +68,6 @@ const MatchingPage = () => {
     // 处理匹配结果选择
     const handleResultSelect = (result) => {
         setSelectedResult(result);
-        setMapMode('matching');
     };
 
     // 处理匹配结果筛选
@@ -150,14 +123,15 @@ const MatchingPage = () => {
         fetchMatchingResults();
     }, []);
 
-    // 获取匹配结果对应的路线和货物信息
-    const getRouteInfo = (routeId) => {
-        return routes.find(route => route.id === routeId) || {};
-    };
+    // 获取匹配结果对应的路线和货物信息（新接口已包含详细信息）
+    // 这些函数现在不再需要，因为数据已经包含在接口返回中
+    // const getRouteInfo = (routeId) => {
+    //     return {};
+    // };
 
-    const getShipmentInfo = (shipmentId) => {
-        return shipments.find(shipment => shipment.id === shipmentId) || {};
-    };
+    // const getShipmentInfo = (shipmentId) => {
+    //     return {};
+    // };
 
     // 获取状态颜色
     const getStatusColor = (status) => {
@@ -179,12 +153,15 @@ const MatchingPage = () => {
             key: 'route',
             width: 120,
             render: (_, record) => {
-                const route = getRouteInfo(record.route_id);
+                const routeInfo = record.route_info;
+                if (!routeInfo) {
+                    return <Tag color="red">未匹配</Tag>;
+                }
                 return (
                     <div>
-                        <div style={{fontWeight: 'bold'}}>{route.origin}</div>
+                        <div style={{fontWeight: 'bold'}}>{routeInfo.nodes?.[0] || '起点'}</div>
                         <div style={{color: '#999'}}>→</div>
-                        <div>{route.destination}</div>
+                        <div>{routeInfo.nodes?.[routeInfo.nodes.length - 1] || '终点'}</div>
                     </div>
                 );
             }
@@ -194,12 +171,12 @@ const MatchingPage = () => {
             key: 'shipment',
             width: 120,
             render: (_, record) => {
-                const shipment = getShipmentInfo(record.shipment_id);
+                const shipmentInfo = record.shipment_info;
                 return (
                     <div>
-                        <div>{shipment.origin}</div>
+                        <div>{shipmentInfo?.origin_city || '未知'}</div>
                         <div style={{color: '#999'}}>→</div>
-                        <div>{shipment.destination}</div>
+                        <div>{shipmentInfo?.destination_city || '未知'}</div>
                     </div>
                 );
             }
@@ -358,8 +335,8 @@ const MatchingPage = () => {
                         <MapViewer
                             mode="matching"
                             matchings={selectedResult ? [selectedResult] : matchingResults}
-                            routes={selectedResult ? [getRouteInfo(selectedResult.route_id)] : (routes || [])}
-                            shipments={selectedResult ? [getShipmentInfo(selectedResult.shipment_id)] : (shipments || [])}
+                            routes={selectedResult ? [selectedResult.route_info] : []}
+                            shipments={selectedResult ? [selectedResult.shipment_info] : []}
                             onRouteClick={handleResultSelect}
                             mapEngine={mapEngine}
                             height="100%"
@@ -403,12 +380,15 @@ const MatchingPage = () => {
                                         <strong>路线信息:</strong>
                                         <div>
                                             {(() => {
-                                                const route = getRouteInfo(selectedResult.route_id);
+                                                const routeInfo = selectedResult.route_info;
+                                                if (!routeInfo) {
+                                                    return <Tag color="red">未匹配</Tag>;
+                                                }
                                                 return (
                                                     <div>
-                                                        <div>{route.origin}</div>
+                                                        <div>{routeInfo.nodes?.[0] || '起点'}</div>
                                                         <div style={{color: '#999'}}>→</div>
-                                                        <div>{route.destination}</div>
+                                                        <div>{routeInfo.nodes?.[routeInfo.nodes.length - 1] || '终点'}</div>
                                                     </div>
                                                 );
                                             })()}
@@ -418,12 +398,12 @@ const MatchingPage = () => {
                                         <strong>货物信息:</strong>
                                         <div>
                                             {(() => {
-                                                const shipment = getShipmentInfo(selectedResult.shipment_id);
+                                                const shipmentInfo = selectedResult.shipment_info;
                                                 return (
                                                     <div>
-                                                        <div>{shipment.origin}</div>
+                                                        <div>{shipmentInfo?.origin_city || '未知'}</div>
                                                         <div style={{color: '#999'}}>→</div>
-                                                        <div>{shipment.destination}</div>
+                                                        <div>{shipmentInfo?.destination_city || '未知'}</div>
                                                     </div>
                                                 );
                                             })()}
@@ -482,7 +462,7 @@ const MatchingPage = () => {
             <Card style={{marginTop: 24}}>
                 <DataTable
                     title="匹配结果列表"
-                    data={matchingResults}
+                    data={matchTable}
                     columns={columns}
                     loading={loading}
                     onFilter={handleResultFilter}

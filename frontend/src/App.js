@@ -8,6 +8,7 @@ import RoutesPage from './pages/Routes/RoutesPage';
 import ShipmentsPage from './pages/Shipments/ShipmentsPage';
 import MatchingPage from './pages/Matching/MatchingPage';
 import DataUploadPage from './pages/DataUpload/DataUploadPage';
+
 import './App.css';
 
 const {Header, Sider, Content} = Layout;
@@ -42,7 +43,8 @@ const Navigation = ({collapsed, setCollapsed}) => {
             key: 'data-upload',
             icon: <UploadOutlined/>,
             label: '数据上传',
-        }
+        },
+
     ];
 
     const handleMenuClick = (e) => {

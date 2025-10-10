@@ -74,6 +74,7 @@ export const shipmentsAPI = {
 export const matchingAPI = {
     getAll: () => api.get('/matchings'),
     getMatching: () => api.get(`/shipment-route-mapping`),
+    getDetailed: () => api.get('/matchings/detailed'),
     getShipment: (id) => api.get(`/shipment/${id}`),
     getRoute: (id) => api.get(`/route/${id}`),
 };

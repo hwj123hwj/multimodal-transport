@@ -2,8 +2,9 @@
 匹配算法API路由
 提供匹配算法的REST API接口
 """
-from fastapi import APIRouter, HTTPException
 import logging
+
+from fastapi import APIRouter, HTTPException
 
 from ..config import get_data_dir
 from ..services.data_loader import DataLoader
@@ -121,3 +122,67 @@ async def get_matching_by_route(route_id: int):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取匹配结果失败: {str(e)}")
+
+
+@router.get("/matchings/detailed")
+async def get_detailed_matchings():
+    """获取包含货物和路线详细信息的匹配结果"""
+    try:
+        # 获取匹配数据
+        matchings = matching_service.get_all_matchings()
+
+        # 获取货物和路线详细信息
+        shipments_data = data_service.get_all_shipments()
+        routes_data = data_service.get_all_routes()
+
+        # 构建货物和路线映射
+        shipment_map = {s["shipment_id"]: s for s in shipments_data["shipments"]}
+        route_map = {r["route_id"]: r for r in routes_data["routes"]}
+
+        # 构建详细的匹配结果
+        detailed_matchings = []
+        for matching in matchings:
+            for shipment in matching.get("shipments", []):
+                shipment_id = shipment.get("shipment_id")
+                route_id = shipment.get("assigned_route")
+
+                shipment_info = shipment_map.get(shipment_id, {})
+                route_info = route_map.get(route_id, {}) if route_id != "Self" else None
+
+                detailed_matchings.append({
+                    "id": len(detailed_matchings) + 1,
+                    "shipment_id": shipment_id,
+                    "route_id": route_id,
+                    "shipment_info": {
+                        "origin_city": shipment_info.get("origin_city", "未知"),
+                        "destination_city": shipment_info.get("destination_city", "未知"),
+                        "demand": shipment_info.get("demand", 0),
+                        "weight": shipment_info.get("weight", 0),
+                        "volume": shipment_info.get("volume", 0),
+                        "origin_longitude": shipment_info.get("origin_longitude"),
+                        "origin_latitude": shipment_info.get("origin_latitude"),
+                        "destination_longitude": shipment_info.get("destination_longitude"),
+                        "destination_latitude": shipment_info.get("destination_latitude")
+                    },
+                    "route_info": {
+                        "nodes": route_info.get("nodes", []) if route_info else [],
+                        "node_details": route_info.get("node_details", []) if route_info else [],
+                        "total_cost": route_info.get("total_cost", 0) if route_info else 0,
+                        "total_travel_time": route_info.get("total_travel_time", 0) if route_info else 0,
+                        "capacity": route_info.get("capacity", 0) if route_info else 0,
+                        "available_capacity": route_info.get("available_capacity", 0) if route_info else 0
+                    } if route_info else None,
+                    "match_score": 85.0,  # 可以根据实际算法计算
+                    "status": "matched" if route_id != "Self" else "unmatched",
+                    "cost_savings": 0,  # 可以根据实际算法计算
+                    "time_savings": 0  # 可以根据实际算法计算
+                })
+
+        return {
+            "status": "success",
+            "data": detailed_matchings,
+            "count": len(detailed_matchings)
+        }
+    except Exception as e:
+        logger.error(f"获取详细匹配结果失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"获取详细匹配结果失败: {str(e)}")
