@@ -66,10 +66,9 @@ const ShipmentsPage = () => {
     const handleExport = () => {
         try {
             const csvContent = [
-                ['货物ID', '类型', '重量(kg)', '体积(m³)', '状态', '起点', '终点', '时间价值(CNY/TEU)'],
+                ['货物ID', '重量(kg)', '体积(m³)', '需求量', '起点', '终点', '时间价值(CNY/TEU)'],
                 ...shipments.map(shipment => [
                     shipment.shipment_id,
-                    shipment.type,
                     shipment.weight,
                     shipment.volume,
                     shipment.status,
@@ -112,23 +111,6 @@ const ShipmentsPage = () => {
             render: (text) => <span style={{fontWeight: 500}}>{text}</span>
         },
         {
-            title: '类型',
-            dataIndex: 'type',
-            key: 'type',
-            width: 100,
-            render: (type) => {
-                const typeMap = {
-                    'general': {text: '普通货物', color: 'blue'},
-                    'perishable': {text: '易腐货物', color: 'orange'},
-                    'fragile': {text: '易碎货物', color: 'purple'},
-                    'hazardous': {text: '危险品', color: 'red'},
-                    'valuable': {text: '贵重货物', color: 'gold'}
-                };
-                const typeInfo = typeMap[type] || {text: '未知', color: 'default'};
-                return <Tag color={typeInfo.color} className={`type-tag ${type}`}>{typeInfo.text}</Tag>;
-            }
-        },
-        {
             title: '重量(kg)',
             dataIndex: 'weight',
             key: 'weight',
@@ -143,21 +125,10 @@ const ShipmentsPage = () => {
             render: (volume) => `${volume} m³`
         },
         {
-            title: '状态',
-            dataIndex: 'status',
-            key: 'status',
+            title: '需求量(TEU)',
+            dataIndex: 'demand',
+            key: 'demand',
             width: 100,
-            render: (status) => {
-                const statusMap = {
-                    'pending': {text: '待处理', color: 'orange'},
-                    'in-transit': {text: '运输中', color: 'blue'},
-                    'delivered': {text: '已送达', color: 'green'},
-                    'cancelled': {text: '已取消', color: 'red'},
-                    'expired': {text: '已过期', color: 'purple'}
-                };
-                const statusInfo = statusMap[status] || {text: '未知', color: 'default'};
-                return <Tag color={statusInfo.color} className={`status-tag ${status}`}>{statusInfo.text}</Tag>;
-            }
         },
         {
             title: '起点城市',
