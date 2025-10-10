@@ -17,7 +17,7 @@ const RoutesPage = () => {
     const [statistics, setStatistics] = useState({
         totalRoutes: 0,
         totalDistance: 0,
-        totalDuration: 0,
+        avgDuration: 0,
         avgCost: 0
     });
 
@@ -39,7 +39,7 @@ const RoutesPage = () => {
             const stats = {
                 totalRoutes: data.length,
                 totalDistance: data.reduce((sum, route) => sum + (route.total_distance || 0), 0),
-                totalDuration: data.reduce((sum, route) => sum + (route.total_travel_time || 0), 0),
+                avgDuration: data.length > 0 ? data.reduce((sum, route) => sum + (route.total_travel_time || 0), 0) / data.length : 0,
                 avgCost: data.length > 0 ? data.reduce((sum, route) => sum + (route.total_cost || 0), 0) / data.length : 0
             };
             setStatistics(stats);
@@ -52,7 +52,7 @@ const RoutesPage = () => {
             setStatistics({
                 totalRoutes: 0,
                 totalDistance: 0,
-                totalDuration: 0,
+                avgDuration: 0,
                 avgCost: 0
             });
         } finally {
@@ -237,7 +237,7 @@ const RoutesPage = () => {
                     <Card>
                         <Statistic
                             title="平均耗时"
-                            value={statistics.totalDuration}
+                            value={statistics.avgDuration}
                             precision={1}
                             suffix="小时"
                             valueStyle={{color: '#faad14'}}
