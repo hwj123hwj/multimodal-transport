@@ -243,7 +243,6 @@ class RouteCollection:
             'total_capacity': sum(r.capacity for r in routes),
             'total_current_load': sum(r.current_load for r in routes),
             'total_available_capacity': sum(r.available_capacity for r in routes),
-            'average_utilization_rate': sum(r.utilization_rate for r in routes) / len(routes),
             'full_routes': len([r for r in routes if r.is_full]),
             'total_travel_time': sum(r.total_travel_time for r in routes),
             'average_travel_time': sum(r.total_travel_time for r in routes) / len(routes),

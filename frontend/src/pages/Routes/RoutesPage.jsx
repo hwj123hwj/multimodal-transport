@@ -35,11 +35,11 @@ const RoutesPage = () => {
 
             setRoutes(data);
 
-            // 计算统计信息
+            // 直接使用后端提供的统计信息，无需前端计算
             const stats = {
                 totalRoutes: data.length,
                 totalDistance: data.reduce((sum, route) => sum + (route.total_distance || 0), 0),
-                totalDuration: data.reduce((sum, route) => sum + (route.total_duration || 0), 0),
+                totalDuration: data.reduce((sum, route) => sum + (route.total_travel_time || 0), 0),
                 avgCost: data.length > 0 ? data.reduce((sum, route) => sum + (route.total_cost || 0), 0) / data.length : 0
             };
             setStatistics(stats);
@@ -90,13 +90,13 @@ const RoutesPage = () => {
 // 处理数据导出
     const handleExport = () => {
         const data = routes.map(route => ({
-            '路线ID': route.id,
-            '起点': route.nodes && route.nodes.length > 0 ? route.nodes[0] : '-',  // 修改这里
-            '终点': route.nodes && route.nodes.length > 0 ? route.nodes[route.nodes.length - 1] : '-',  // 修改这里
+            '路线ID': route.route_id,
+            '起点': route.nodes && route.nodes.length > 0 ? route.nodes[0] : '-',
+            '终点': route.nodes && route.nodes.length > 0 ? route.nodes[route.nodes.length - 1] : '-',
             '距离': formatDistance(route.total_distance),
-            '耗时': formatTime(route.total_duration),
+            '耗时': formatTime(route.total_travel_time),
             '成本': formatCurrency(route.total_cost),
-            '途经城市': route.nodes ? route.nodes.join(', ') : '-',  // 修改这里，原来可能是 waypoints
+            '途经城市': route.nodes ? route.nodes.join(', ') : '-',
             '创建时间': new Date(route.created_at).toLocaleString()
         }));
 
@@ -126,7 +126,7 @@ const RoutesPage = () => {
             dataIndex: 'route_id',
             key: 'route_id',
             width: 80,
-            sorter: (a, b) => a.id - b.id
+            sorter: (a, b) => a.route_id - b.route_id
         },
         {
             title: '起点',
@@ -154,11 +154,11 @@ const RoutesPage = () => {
         },
         {
             title: '耗时',
-            dataIndex: 'total_duration',
-            key: 'total_duration',
+            dataIndex: 'total_travel_time',
+            key: 'total_travel_time',
             width: 100,
             render: (duration) => formatTime(duration),
-            sorter: (a, b) => a.total_duration - b.total_duration
+            sorter: (a, b) => a.total_travel_time - b.total_travel_time
         },
         {
             title: '成本',
@@ -236,7 +236,7 @@ const RoutesPage = () => {
                 <Col xs={24} sm={12} md={6}>
                     <Card>
                         <Statistic
-                            title="总耗时"
+                            title="平均耗时"
                             value={statistics.totalDuration}
                             precision={1}
                             suffix="小时"

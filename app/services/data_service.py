@@ -161,11 +161,15 @@ class DataService:
                     "is_full": route.is_full
                 })
 
+            # 修改 get_all_routes 方法的返回部分
             return {
                 "total_count": stats["total_routes"],
                 "capacity_stats": {
                     "total_capacity": stats["total_capacity"],
-                    "avg_utilization": stats.get("average_utilization_rate", 0.0)
+                },
+                "route_stats": {
+                    "average_travel_time": stats.get("average_travel_time", 0.0),
+                    "average_cost": stats.get("average_total_cost", 0.0)
                 },
                 "routes": all_routes
             }
