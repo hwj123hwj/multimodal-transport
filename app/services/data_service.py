@@ -156,8 +156,6 @@ class DataService:
                     "capacity": route.capacity,
                     "current_load": route.current_load,
                     "available_capacity": route.available_capacity,
-                    "utilization_rate": route.utilization_rate,
-                    "efficiency_score": route.efficiency_score,
                     "is_full": route.is_full
                 })
 

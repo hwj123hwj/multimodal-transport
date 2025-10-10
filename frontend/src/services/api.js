@@ -77,6 +77,7 @@ export const matchingAPI = {
     getDetailed: () => api.get('/matchings/detailed'),
     getShipment: (id) => api.get(`/shipment/${id}`),
     getRoute: (id) => api.get(`/route/${id}`),
+    getSummary: () => api.get('/summary'),
 };
 
 // 数据上传API

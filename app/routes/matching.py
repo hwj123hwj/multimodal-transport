@@ -172,10 +172,7 @@ async def get_detailed_matchings():
                         "capacity": route_info.get("capacity", 0) if route_info else 0,
                         "available_capacity": route_info.get("available_capacity", 0) if route_info else 0
                     } if route_info else None,
-                    "match_score": 85.0,  # 可以根据实际算法计算
                     "status": "matched" if route_id != "Self" else "unmatched",
-                    "cost_savings": 0,  # 可以根据实际算法计算
-                    "time_savings": 0  # 可以根据实际算法计算
                 })
 
         return {

@@ -325,34 +325,99 @@ const RoutesPage = () => {
                             style={{height: '600px', overflow: 'auto'}}
                         >
                             <div style={{padding: '16px 0'}}>
-                                <Row gutter={16}>
-                                    <Col span={12}>
-                                        <strong>起点:</strong>
-                                        <div>{selectedRoute.nodes && selectedRoute.nodes.length > 0 ? selectedRoute.nodes[0] : '-'}</div>
-                                    </Col>
-                                    <Col span={12}>
-                                        <strong>终点:</strong>
-                                        <div>{selectedRoute.nodes && selectedRoute.nodes.length > 0 ? selectedRoute.nodes[selectedRoute.nodes.length - 1] : '-'}</div>
-                                    </Col>
-                                </Row>
+                                {/* 基本信息卡片 */}
+                                <Card size="small" style={{marginBottom: 16}}>
+                                    <Row gutter={16}>
+                                        <Col span={12}>
+                                            <div style={{textAlign: 'center'}}>
+                                                <div style={{color: '#1890ff', fontWeight: 'bold', fontSize: '18px'}}>
+                                                    {selectedRoute.nodes && selectedRoute.nodes.length > 0 ? selectedRoute.nodes[0] : '-'}
+                                                </div>
+                                                <div style={{fontSize: '12px', color: '#666'}}>起点城市</div>
+                                            </div>
+                                        </Col>
+                                        <Col span={12}>
+                                            <div style={{textAlign: 'center'}}>
+                                                <div style={{color: '#52c41a', fontWeight: 'bold', fontSize: '18px'}}>
+                                                    {selectedRoute.nodes && selectedRoute.nodes.length > 0 ? selectedRoute.nodes[selectedRoute.nodes.length - 1] : '-'}
+                                                </div>
+                                                <div style={{fontSize: '12px', color: '#666'}}>终点城市</div>
+                                            </div>
+                                        </Col>
+                                    </Row>
+                                    <Row gutter={16} style={{marginTop: 16}}>
+                                        <Col span={8}>
+                                            <div style={{textAlign: 'center'}}>
+                                                <div style={{color: '#fa8c16', fontWeight: 'bold', fontSize: '16px'}}>
+                                                    {formatDistance(selectedRoute.total_distance)}
+                                                </div>
+                                                <div style={{fontSize: '12px', color: '#666'}}>总距离</div>
+                                            </div>
+                                        </Col>
+                                        <Col span={8}>
+                                            <div style={{textAlign: 'center'}}>
+                                                <div style={{color: '#722ed1', fontWeight: 'bold', fontSize: '16px'}}>
+                                                    {formatTime(selectedRoute.total_travel_time)}
+                                                </div>
+                                                <div style={{fontSize: '12px', color: '#666'}}>总耗时</div>
+                                            </div>
+                                        </Col>
+                                        <Col span={8}>
+                                            <div style={{textAlign: 'center'}}>
+                                                <div style={{color: '#eb2f96', fontWeight: 'bold', fontSize: '16px'}}>
+                                                    {formatCurrency(selectedRoute.total_cost)}
+                                                </div>
+                                                <div style={{fontSize: '12px', color: '#666'}}>总成本</div>
+                                            </div>
+                                        </Col>
+                                    </Row>
+                                </Card>
 
-                                <Row gutter={16} style={{marginTop: 16}}>
-                                    <Col span={8}>
-                                        <strong>距离:</strong>
-                                        <div>{formatDistance(selectedRoute.total_distance)}</div>
-                                    </Col>
-                                    <Col span={8}>
-                                        <strong>耗时:</strong>
-                                        <div>{formatTime(selectedRoute.total_duration)}</div>
-                                    </Col>
-                                    <Col span={8}>
-                                        <strong>成本:</strong>
-                                        <div>{formatCurrency(selectedRoute.total_cost)}</div>
-                                    </Col>
-                                </Row>
+                                {/* 分段详情 */}
+                                <Card size="small" title="分段详情" style={{marginBottom: 16}}>
+                                    {selectedRoute.nodes && selectedRoute.nodes.length > 1 && selectedRoute.costs && selectedRoute.travel_times && (
+                                        <div>
+                                            {selectedRoute.nodes.slice(0, -1).map((fromCity, index) => {
+                                                const toCity = selectedRoute.nodes[index + 1];
+                                                const cost = selectedRoute.costs[index] || 0;
+                                                const time = selectedRoute.travel_times[index] || 0;
+                                                return (
+                                                    <Card key={index} size="small" style={{marginBottom: 8, backgroundColor: '#f0f2f5'}}>
+                                                        <Row gutter={16} align="middle">
+                                                            <Col span={6}>
+                                                                <div style={{textAlign: 'center'}}>
+                                                                    <div style={{fontWeight: 'bold', color: '#1890ff'}}>{fromCity}</div>
+                                                                    <div style={{fontSize: '12px', color: '#666'}}>→</div>
+                                                                    <div style={{fontWeight: 'bold', color: '#52c41a'}}>{toCity}</div>
+                                                                </div>
+                                                            </Col>
+                                                            <Col span={6}>
+                                                                <div style={{textAlign: 'center'}}>
+                                                                    <div style={{color: '#fa8c16', fontWeight: 'bold'}}>{formatCurrency(cost)}</div>
+                                                                    <div style={{fontSize: '12px', color: '#666'}}>路段成本</div>
+                                                                </div>
+                                                            </Col>
+                                                            <Col span={6}>
+                                                                <div style={{textAlign: 'center'}}>
+                                                                    <div style={{color: '#722ed1', fontWeight: 'bold'}}>{formatTime(time)}</div>
+                                                                    <div style={{fontSize: '12px', color: '#666'}}>路段耗时</div>
+                                                                </div>
+                                                            </Col>
+                                                            <Col span={6}>
+                                                                <div style={{textAlign: 'center'}}>
+                                                                    <Tag color="blue">路段 {index + 1}</Tag>
+                                                                </div>
+                                                            </Col>
+                                                        </Row>
+                                                    </Card>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </Card>
 
-                                <div style={{marginTop: 16}}>
-                                    <strong>途经城市:</strong>
+                                {/* 途经城市 */}
+                                <Card size="small" title="途经城市">
                                     <div style={{marginTop: 8}}>
                                         <Space size="small" wrap>
                                             {selectedRoute.nodes && selectedRoute.nodes.map((city, index) => (
@@ -362,12 +427,10 @@ const RoutesPage = () => {
                                             ))}
                                         </Space>
                                     </div>
-                                </div>
-
-                                <div style={{marginTop: 16}}>
-                                    <strong>创建时间:</strong>
-                                    <div>{new Date(selectedRoute.created_at).toLocaleString()}</div>
-                                </div>
+                                    <div style={{marginTop: 8, fontSize: '12px', color: '#666'}}>
+                                        共 {selectedRoute.nodes ? selectedRoute.nodes.length : 0} 个城市
+                                    </div>
+                                </Card>
                             </div>
                         </Card>
                     ) : (
