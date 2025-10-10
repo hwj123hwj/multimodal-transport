@@ -51,9 +51,18 @@ const MatchingPage = () => {
                 shipmentsData = shipmentsData?.shipments || shipmentsData?.data || [];
             }
 
+            // 根据匹配结果更新货物的分配状态
+            const updatedShipments = shipmentsData.map(shipment => {
+                const matchedResult = matches.find(m => m.shipment_id === shipment.id && m.status === 'matched');
+                return {
+                    ...shipment,
+                    assigned_route: matchedResult ? matchedResult.route_id : null
+                };
+            });
+
             setMatchingResults(matches);
             setRoutes(routesData);
-            setShipments(shipmentsData);
+            setShipments(updatedShipments);
 
             // 计算统计信息
             const stats = {
@@ -349,8 +358,8 @@ const MatchingPage = () => {
                         <MapViewer
                             mode="matching"
                             matchings={selectedResult ? [selectedResult] : matchingResults}
-                            routes={routes || []}
-                            shipments={shipments || []}
+                            routes={selectedResult ? [getRouteInfo(selectedResult.route_id)] : (routes || [])}
+                            shipments={selectedResult ? [getShipmentInfo(selectedResult.shipment_id)] : (shipments || [])}
                             onRouteClick={handleResultSelect}
                             mapEngine={mapEngine}
                             height="100%"
