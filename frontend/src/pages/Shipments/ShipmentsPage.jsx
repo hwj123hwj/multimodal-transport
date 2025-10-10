@@ -1,15 +1,14 @@
 import React, {useEffect, useState} from 'react';
-import {Button, Card, Col, Input, message, Row, Space, Statistic, Table, Tag} from 'antd';
+import {Button, Card, Col, Input, message, Row, Space, Statistic, Table} from 'antd';
 import {ExportOutlined, ReloadOutlined, SearchOutlined} from '@ant-design/icons';
 import {shipmentsAPI} from '../../services/api';
 import './ShipmentsPage.css';
 
-const {Search} = Input;
-
 const ShipmentsPage = () => {
     const [shipments, setShipments] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [searchTerm, setSearchTerm] = useState('');
+    const [originSearch, setOriginSearch] = useState(''); // eslint-disable-next-line
+    const [destinationSearch, setDestinationSearch] = useState(''); // eslint-disable-next-line
     const [stats, setStats] = useState({
         total: 0,
         pending: 0,
@@ -29,12 +28,17 @@ const ShipmentsPage = () => {
                 data = data?.shipments || data?.data || [];
             }
 
-            // 搜索过滤
-            if (searchTerm) {
+            // 起点城市筛选
+            if (originSearch.trim()) {
                 data = data.filter(shipment =>
-                    shipment.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    shipment.origin.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    shipment.destination.toLowerCase().includes(searchTerm.toLowerCase())
+                    shipment.origin_city && shipment.origin_city.toLowerCase().includes(originSearch.toLowerCase().trim())
+                );
+            }
+
+            // 终点城市筛选
+            if (destinationSearch.trim()) {
+                data = data.filter(shipment =>
+                    shipment.destination_city && shipment.destination_city.toLowerCase().includes(destinationSearch.toLowerCase().trim())
                 );
             }
 
@@ -56,9 +60,14 @@ const ShipmentsPage = () => {
         }
     };
 
-    // 搜索处理
-    const handleSearch = (value) => {
-        setSearchTerm(value);
+    // 起点搜索处理
+    const handleOriginSearch = () => { // eslint-disable-next-line
+        fetchShipments();
+    };
+
+    // 终点搜索处理
+    const handleDestinationSearch = () => { // eslint-disable-next-line
+        fetchShipments();
     };
 
 
@@ -99,7 +108,7 @@ const ShipmentsPage = () => {
     useEffect(() => {
         fetchShipments();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [searchTerm]);
+    }, [originSearch, destinationSearch]);
 
     // 表格列定义
     const columns = [
@@ -167,18 +176,37 @@ const ShipmentsPage = () => {
             {/* 搜索栏 */}
             <Card className="search-section">
                 <Row gutter={16} align="middle">
-                    <Col flex="auto">
-                        <Search
-                            placeholder="搜索货物名称、起点或终点..."
+                    <Col>
+                        <Input
+                            placeholder="搜索起点城市..."
+                            value={originSearch}
+                            onChange={(e) => setOriginSearch(e.target.value)}
+                            onPressEnter={handleOriginSearch}
+                            style={{width: 200}}
                             allowClear
-                            enterButton={<SearchOutlined/>}
-                            size="large"
-                            value={searchTerm}
-                            onSearch={handleSearch}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            style={{maxWidth: 400}}
                         />
                     </Col>
+                    <Col>
+                        <Input
+                            placeholder="搜索终点城市..."
+                            value={destinationSearch}
+                            onChange={(e) => setDestinationSearch(e.target.value)}
+                            onPressEnter={handleDestinationSearch}
+                            style={{width: 200}}
+                            allowClear
+                        />
+                    </Col>
+                    <Col>
+                        <Button
+                            type="primary"
+                            onClick={fetchShipments}
+                            loading={loading}
+                            icon={<SearchOutlined/>}
+                        >
+                            搜索
+                        </Button>
+                    </Col>
+                    <Col flex="auto"></Col>
                     <Col>
                         <Space>
                             <Button
