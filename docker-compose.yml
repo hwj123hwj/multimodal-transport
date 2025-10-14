@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  # 后端服务
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: expe-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - DEBUG=false
+      - DATA_DIR=/app/data
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    networks:
+      - expe-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # 前端服务
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.frontend
+    container_name: expe-frontend
+    ports:
+      - "3000:80"
+    environment:
+      - REACT_APP_API_URL=http://backend:8000
+    depends_on:
+      - backend
+    networks:
+      - expe-network
+    restart: unless-stopped
+
+  # Nginx反向代理（可选，用于生产环境）
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile.nginx
+    container_name: expe-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - frontend
+      - backend
+    volumes:
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./logs/nginx:/var/log/nginx
+    networks:
+      - expe-network
+    restart: unless-stopped
+    profiles:
+      - production
+
+networks:
+  expe-network:
+    driver: bridge
+
+volumes:
+  expe-data:
+  expe-logs:
