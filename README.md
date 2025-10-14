@@ -115,15 +115,10 @@ expe_backend/
    source venv/bin/activate  # Windows: venv\Scripts\activate
 
    # 安装依赖
-   pip install -r requirements.txt
+    uv sync
 
-   # 环境变量配置
-   cp .env.example .env
-   # 编辑.env文件，配置必要的参数
+   # 编辑.env文件，配置必要的参数(可选)
 
-   # 初始化数据（可选）
-   python scripts/init_data.py
-   
    # 启动后端服务
    python app.py
    ```
