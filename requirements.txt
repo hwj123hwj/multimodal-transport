@@ -1,0 +1,12 @@
+# 这个文件用于Docker构建，从pyproject.toml生成
+# 使用命令: uv export --format requirements-txt > requirements.txt
+
+pandas>=2.2.3
+numpy>=2.2.4
+python-dotenv>=1.1.1
+fastapi>=0.117.1
+uvicorn[standard]>=0.37.0
+pytest>=8.4.2
+httpx>=0.28.1
+requests>=2.32.5
+python-multipart>=0.0.20
