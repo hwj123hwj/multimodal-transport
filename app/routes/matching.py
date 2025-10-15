@@ -75,21 +75,30 @@ async def get_matching_summary():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+from concurrent.futures import ThreadPoolExecutor
+import asyncio
+from fastapi import HTTPException, BackgroundTasks
+import logging
+# 创建线程池（根据服务器CPU核心数调整）
+thread_pool = ThreadPoolExecutor(max_workers=4)
+
 @router.post("/matching/execute")
-async def execute_matching_algorithm():
-    """执行匹配算法"""
+async def execute_matching_algorithm(background_tasks: BackgroundTasks):
+    """执行匹配算法（异步线程池版本）"""
     try:
-        result = matching_service.execute_matching_algorithm()
-        return result
+        # 将同步函数放入线程池执行
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            thread_pool,
+            matching_service.execute_matching_algorithm
+        )
+        return {"status": "completed", "result": result}
     except FileNotFoundError as e:
         logger.error(f"执行匹配算法失败 - 文件缺失: {str(e)}")
         raise HTTPException(status_code=404, detail=str(e))
-    except RuntimeError as e:
-        logger.error(f"执行匹配算法失败 - 运行时错误: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
-        logger.error(f"执行匹配算法失败 - 未知错误: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"执行匹配算法失败: {str(e)}")
+        logger.error(f"执行匹配算法失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/shipment/{shipment_id}")

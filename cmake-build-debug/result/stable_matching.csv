@@ -4,6 +4,6 @@ Total capacity in route,8900
 Total container number in shipment,3198
 Total matched container number,2519
 Stable or not,True
-Iteration num,513
+Iteration num,510
 Restart num,201
-CPU time,29.32,s
+CPU time,28.641,s
