@@ -4,7 +4,7 @@
 """
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 
 from ..config import get_data_dir
 from ..services.data_loader import DataLoader
@@ -78,9 +78,10 @@ async def get_matching_summary():
 from concurrent.futures import ThreadPoolExecutor
 import asyncio
 from fastapi import HTTPException, BackgroundTasks
-import logging
+
 # 创建线程池（根据服务器CPU核心数调整）
 thread_pool = ThreadPoolExecutor(max_workers=4)
+
 
 @router.post("/matching/execute")
 async def execute_matching_algorithm(background_tasks: BackgroundTasks):
