@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 
 # 数据文件配置
-DATA_DIR = os.getenv("DATA_DIR", "./data")
+DATA_DIR = os.getenv("DATA_DIR", "./cmake-build-debug/data")
 SHIPMENT_FILE = os.getenv("SHIPMENT_FILE", "shipment.csv")
 ROUTE_FILE = os.getenv("ROUTE_FILE", "route.csv")
 MATCHING_FILE = os.getenv("MATCHING_FILE", "stable_matching.csv")

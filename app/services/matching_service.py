@@ -274,14 +274,14 @@ class MatchingService:
             Dict[str, Any]: 执行结果
         """
         try:
-            # 获取数据目录路径
-            data_dir = Path(self.data_loader.data_dir)
+            # 获取数据目录路径（容器内路径）
+            data_dir = Path("/app/data")
 
             # 检查必要的输入文件是否存在
             route_file = data_dir / "route.csv"
             shipment_file = data_dir / "shipment.csv"
-            data_network_file = "data/network.csv"
-            data_cooperation_file = "data/cooperation_parameter.csv"
+            data_network_file = "/app/data/network.csv"
+            data_cooperation_file = "/app/data/cooperation_parameter.csv"
 
             if not route_file.exists():
                 raise FileNotFoundError(f"路线数据文件不存在: {route_file}")
@@ -289,13 +289,13 @@ class MatchingService:
             if not shipment_file.exists():
                 raise FileNotFoundError(f"货物数据文件不存在: {shipment_file}")
 
-            # 构建可执行文件路径
-            exe_path = Path("cmake-build-debug") / "stable_match.exe"
+            # 构建可执行文件路径（容器内路径）
+            exe_path = Path("/app/cmake-build-debug") / "stable_match.exe"
             if not exe_path.exists():
                 raise FileNotFoundError(f"算法可执行文件不存在: {exe_path}")
 
             # 构建输出文件路径 - C++程序输出到cmake-build-debug/result目录
-            output_file = Path("cmake-build-debug") / "result" / "stable_matching.csv"
+            output_file = Path("/app/cmake-build-debug") / "result" / "stable_matching.csv"
 
             # 执行算法
             process = subprocess.Popen(
