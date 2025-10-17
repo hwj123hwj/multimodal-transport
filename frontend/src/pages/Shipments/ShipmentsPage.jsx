@@ -11,9 +11,9 @@ const ShipmentsPage = () => {
     const [destinationSearch, setDestinationSearch] = useState(''); // eslint-disable-next-line
     const [stats, setStats] = useState({
         total: 0,
-        pending: 0,
-        inTransit: 0,
-        delivered: 0
+        totalDemand: 0,
+        totalWeight: 0,
+        totalVolume: 0
     });
 
     // 获取货物数据
@@ -45,11 +45,15 @@ const ShipmentsPage = () => {
             setShipments(data);
 
             // 计算统计数据
+            const totalDemand = data.reduce((sum, shipment) => sum + (shipment.demand || 0), 0);
+            const totalWeight = data.reduce((sum, shipment) => sum + (shipment.weight || 0), 0);
+            const totalVolume = data.reduce((sum, shipment) => sum + (shipment.volume || 0), 0);
+            
             const stats = {
                 total: data.length,
-                pending: data.filter(s => s.status === 'pending').length,
-                inTransit: data.filter(s => s.status === 'in-transit').length,
-                delivered: data.filter(s => s.status === 'delivered').length
+                totalDemand: totalDemand,
+                totalWeight: totalWeight,
+                totalVolume: totalVolume
             };
             setStats(stats);
         } catch (error) {
@@ -244,8 +248,8 @@ const ShipmentsPage = () => {
                 <Col span={6}>
                     <Card>
                         <Statistic
-                            title="待处理"
-                            value={stats.pending}
+                            title="总需求量(TEU)"
+                            value={stats.totalDemand}
                             prefix="#"
                             valueStyle={{color: '#fa8c16'}}
                         />
@@ -254,8 +258,8 @@ const ShipmentsPage = () => {
                 <Col span={6}>
                     <Card>
                         <Statistic
-                            title="运输中"
-                            value={stats.inTransit}
+                            title="总重量(kg)"
+                            value={stats.totalWeight.toFixed(0)}
                             prefix="#"
                             valueStyle={{color: '#1890ff'}}
                         />
@@ -264,8 +268,8 @@ const ShipmentsPage = () => {
                 <Col span={6}>
                     <Card>
                         <Statistic
-                            title="已送达"
-                            value={stats.delivered}
+                            title="总体积(m³)"
+                            value={stats.totalVolume.toFixed(0)}
                             prefix="#"
                             valueStyle={{color: '#52c41a'}}
                         />

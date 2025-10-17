@@ -142,24 +142,40 @@ class MatchingService:
                 'avg_cpu_time': 0
             }
 
-        # 加载路线数据以获取路线分类信息
+        # 加载路线数据以获取路线分类信息和容量
         routes_collection = self.data_loader.load_routes()
         route_categories = {}
+        category_capacities = {
+            "西海路新通道": 0,
+            "长江经济带": 0,
+            "跨境公路": 0,
+            "未知": 0
+        }
+
+        # 获取路线分类和各类路线总容量
         for route in routes_collection.get_all_routes():
             route_categories[route.route_id] = route.route_category
+            category = route.route_category
+            if category in category_capacities:
+                category_capacities[category] += route.capacity
+            else:
+                category_capacities["未知"] += route.capacity
 
         # 按路线分类统计匹配信息
         category_stats = {
-            "西海路新通道": {"total_shipments": 0, "matched_shipments": 0},
-            "长江经济带": {"total_shipments": 0, "matched_shipments": 0},
-            "跨境公路": {"total_shipments": 0, "matched_shipments": 0},
-            "未知": {"total_shipments": 0, "matched_shipments": 0}
+            "西海路新通道": {"total_shipments": 0, "matched_shipments": 0, "total_demand": 0},
+            "长江经济带": {"total_shipments": 0, "matched_shipments": 0, "total_demand": 0},
+            "跨境公路": {"total_shipments": 0, "matched_shipments": 0, "total_demand": 0},
+            "未知": {"total_shipments": 0, "matched_shipments": 0, "total_demand": 0}
         }
 
         total_shipments = 0
         matched_shipments = 0
 
-        # 遍历所有匹配结果，统计各类路线的匹配情况
+        # 加载货物数据用于计算需求量
+        shipments_collection = self.data_loader.load_shipments()
+
+        # 遍历所有匹配结果，统计各类路线的匹配情况和需求量
         for matching in self.matchings:
             total_shipments += matching.total_shipments
             matched_shipments += matching.matched_shipments
@@ -173,21 +189,39 @@ class MatchingService:
                 # 获取路线分类
                 category = route_categories.get(route_id, "未知")
 
+                # 获取货物需求量
+                shipment = shipments_collection.get_shipment(shipment_id)
+                demand = shipment.demand if shipment else 0
+
                 # 更新分类统计
                 if category in category_stats:
                     category_stats[category]["total_shipments"] += 1
-                    category_stats[category]["matched_shipments"] += 1
+                    if route_id != "Self":
+                        category_stats[category]["matched_shipments"] += 1
+                        category_stats[category]["total_demand"] += demand
                 else:
                     category_stats["未知"]["total_shipments"] += 1
-                    category_stats["未知"]["matched_shipments"] += 1
+                    if route_id != "Self":
+                        category_stats["未知"]["matched_shipments"] += 1
+                        category_stats["未知"]["total_demand"] += demand
 
-        # 计算各类路线的匹配率
+        # 计算各类路线的匹配率和利用率
         category_matching_rates = {}
+        category_utilization_rates = {}
+
         for category, stats in category_stats.items():
+            # 计算匹配率
             if stats["total_shipments"] > 0:
                 category_matching_rates[category] = round(stats["matched_shipments"] / stats["total_shipments"], 4)
             else:
                 category_matching_rates[category] = 0
+
+            # 计算利用率
+            if category_capacities[category] > 0:
+                category_utilization_rates[category] = round(
+                    (stats["total_demand"] / category_capacities[category]) * 100, 2)
+            else:
+                category_utilization_rates[category] = 0
 
         avg_matching_rate = sum(m.matching_rate for m in self.matchings) / len(self.matchings)
         avg_cpu_time = sum(m.cpu_time for m in self.matchings) / len(self.matchings)
@@ -200,7 +234,9 @@ class MatchingService:
             'unmatched_shipments': total_shipments - matched_shipments,
             'avg_cpu_time': round(avg_cpu_time, 2),
             'category_matching_rates': category_matching_rates,
-            'category_stats': category_stats
+            'category_utilization_rates': category_utilization_rates,
+            'category_stats': category_stats,
+            'category_capacities': category_capacities
         }
 
     def execute_matching_algorithm(self) -> Dict[str, Any]:

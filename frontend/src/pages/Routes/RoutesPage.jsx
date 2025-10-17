@@ -16,7 +16,7 @@ const RoutesPage = () => {
     const [mapEngine, setMapEngine] = useState('baidu'); // 'baidu' 或 'svg'
     const [statistics, setStatistics] = useState({
         totalRoutes: 0,
-        totalDistance: 0,
+        totalCapacity: 0,
         avgDuration: 0,
         avgCost: 0
     });
@@ -38,7 +38,7 @@ const RoutesPage = () => {
             // 直接使用后端提供的统计信息，无需前端计算
             const stats = {
                 totalRoutes: data.length,
-                totalDistance: data.reduce((sum, route) => sum + (route.total_distance || 0), 0),
+                totalCapacity: data.reduce((sum, route) => sum + (route.capacity || 0), 0),
                 avgDuration: data.length > 0 ? data.reduce((sum, route) => sum + (route.total_travel_time || 0), 0) / data.length : 0,
                 avgCost: data.length > 0 ? data.reduce((sum, route) => sum + (route.total_cost || 0), 0) / data.length : 0
             };
@@ -51,7 +51,7 @@ const RoutesPage = () => {
             setRoutes([]);
             setStatistics({
                 totalRoutes: 0,
-                totalDistance: 0,
+                totalCapacity: 0,
                 avgDuration: 0,
                 avgCost: 0
             });
@@ -236,10 +236,10 @@ const RoutesPage = () => {
                 <Col xs={24} sm={12} md={6}>
                     <Card>
                         <Statistic
-                            title="总距离"
-                            value={statistics.totalDistance}
-                            precision={1}
-                            suffix="km"
+                            title="总容量"
+                            value={statistics.totalCapacity}
+                            precision={0}
+                            suffix="TEU"
                             valueStyle={{color: '#52c41a'}}
                         />
                     </Card>
@@ -405,26 +405,33 @@ const RoutesPage = () => {
                                                         <Row gutter={16} align="middle">
                                                             <Col span={6}>
                                                                 <div style={{textAlign: 'center'}}>
-                                                                    <div style={{fontWeight: 'bold', color: '#1890ff'}}>{fromCity}</div>
-                                                                    <div style={{fontSize: '12px', color: '#666'}}>→</div>
-                                                                    <div style={{fontWeight: 'bold', color: '#52c41a'}}>{toCity}</div>
+                                                                    <div style={{fontWeight: 'bold'}}>
+                                                                        {fromCity} → {toCity}
+                                                                    </div>
                                                                 </div>
                                                             </Col>
                                                             <Col span={6}>
                                                                 <div style={{textAlign: 'center'}}>
-                                                                    <div style={{color: '#fa8c16', fontWeight: 'bold'}}>{formatCurrency(cost)}</div>
-                                                                    <div style={{fontSize: '12px', color: '#666'}}>路段成本</div>
+                                                                    <div style={{color: '#faad14', fontWeight: 'bold'}}>
+                                                                        ¥{formatCurrency(cost)}
+                                                                    </div>
+                                                                    <div style={{fontSize: '11px', color: '#999'}}>成本</div>
                                                                 </div>
                                                             </Col>
                                                             <Col span={6}>
                                                                 <div style={{textAlign: 'center'}}>
-                                                                    <div style={{color: '#722ed1', fontWeight: 'bold'}}>{formatTime(time)}</div>
-                                                                    <div style={{fontSize: '12px', color: '#666'}}>路段耗时</div>
+                                                                    <div style={{color: '#722ed1', fontWeight: 'bold'}}>
+                                                                        {formatTime(time)}
+                                                                    </div>
+                                                                    <div style={{fontSize: '11px', color: '#999'}}>耗时</div>
                                                                 </div>
                                                             </Col>
                                                             <Col span={6}>
                                                                 <div style={{textAlign: 'center'}}>
-                                                                    <Tag color="blue">路段 {index + 1}</Tag>
+                                                                    <div style={{color: '#13c2c2', fontWeight: 'bold'}}>
+                                                                        {index + 1}/{selectedRoute.nodes.length - 1}
+                                                                    </div>
+                                                                    <div style={{fontSize: '11px', color: '#999'}}>路段</div>
                                                                 </div>
                                                             </Col>
                                                         </Row>

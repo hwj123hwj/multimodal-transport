@@ -144,7 +144,6 @@ const MatchingPage = () => {
 
     // 表格列配置 - 根据后端数据优化显示
     const columns = [
-
         {
             title: '货物ID',
             dataIndex: 'shipment_id',

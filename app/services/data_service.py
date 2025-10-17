@@ -163,9 +163,9 @@ class DataService:
             # 修改 get_all_routes 方法的返回部分
             return {
                 "total_count": stats["total_routes"],
-                "capacity_stats": {
-                    "total_capacity": stats["total_capacity"],
-                },
+
+                "total_capacity": stats["total_capacity"],
+
                 "route_stats": {
                     "average_travel_time": stats.get("average_travel_time", 0.0),
                     "average_cost": stats.get("average_total_cost", 0.0)
