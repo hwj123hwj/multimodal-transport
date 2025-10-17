@@ -90,16 +90,35 @@ class MatchingService:
         if not self.matchings:
             return []
 
+        # 加载路线数据以获取路线容量等信息
+        routes_collection = self.data_loader.load_routes()
+        route_obj = routes_collection.get_route(route_id)
+
         result = []
+        total_demand = 0
         for matching in self.matchings:
             # 查找使用该路线的所有货物
             shipments_on_route = matching.get_matches_by_route(route_id)
             if shipments_on_route:
+                # 计算该路线的利用率
+                route_utilization = 0.0
+                if route_obj and route_obj.capacity > 0:
+                    # 计算该路线上匹配的货物总需求量
+                    shipments = self.data_loader.load_shipments()
+
+                    for shipment_id in shipments_on_route:
+                        shipment = shipments.get_shipment(shipment_id)
+                        if shipment:
+                            total_demand += shipment.demand
+                    route_utilization = (total_demand / route_obj.capacity) * 100
+
                 result.append({
                     'route_id': route_id,
                     'shipments': shipments_on_route,
                     'matching_rate': matching.matching_rate,
-                    'is_stable': matching.is_stable
+                    'is_stable': matching.is_stable,
+                    'route_utilization': route_utilization,  # 添加路线利用率
+                    'route_capacity': route_obj.capacity if route_obj else 0  # 添加路线容量
                 })
 
         return result
@@ -139,21 +158,21 @@ class MatchingService:
 
         total_shipments = 0
         matched_shipments = 0
-        
+
         # 遍历所有匹配结果，统计各类路线的匹配情况
         for matching in self.matchings:
             total_shipments += matching.total_shipments
             matched_shipments += matching.matched_shipments
-            
+
             # 遍历每个货物的分配情况
             for shipment_id, route_id in zip(matching.shipment_indices, matching.route_assignments):
                 # 如果是Self表示未匹配，跳过分类统计
                 if route_id == "Self":
                     continue
-                    
+
                 # 获取路线分类
                 category = route_categories.get(route_id, "未知")
-                
+
                 # 更新分类统计
                 if category in category_stats:
                     category_stats[category]["total_shipments"] += 1
