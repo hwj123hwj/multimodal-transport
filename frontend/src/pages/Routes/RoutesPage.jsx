@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import {Button, Card, Col, message, Row, Select, Space, Statistic, Tag, Input} from 'antd';
-import {AimOutlined, ExportOutlined, ReloadOutlined} from '@ant-design/icons';
+import {AimOutlined, ReloadOutlined} from '@ant-design/icons';
 import MapViewer from '../../components/MapViewer/MapViewer';
 import DataTable from '../../components/DataTable/DataTable';
 import {routesAPI} from '../../services/api';
@@ -103,6 +103,7 @@ const RoutesPage = () => {
     };
 
     // 处理数据导出
+    /*
     const handleExport = () => {
         const data = routes.map(route => ({
             '路线ID': route.route_id,
@@ -128,6 +129,7 @@ const RoutesPage = () => {
 
         message.success('路线数据导出成功');
     };
+    */
 
     // 页面加载时获取数据
     useEffect(() => {
@@ -328,13 +330,6 @@ const RoutesPage = () => {
                             loading={loading}
                         >
                             刷新
-                        </Button>
-                        <Button
-                            icon={<ExportOutlined/>}
-                            onClick={handleExport}
-                            disabled={routes.length === 0}
-                        >
-                            导出
                         </Button>
                     </Space>
                 </div>

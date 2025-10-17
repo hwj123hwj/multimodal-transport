@@ -1,11 +1,10 @@
 import React, {useEffect, useState} from 'react';
 import {Button, Card, Col, message, Row, Select, Space, Statistic, Tag} from 'antd';
-import {AimOutlined, CheckCircleOutlined, ExportOutlined, ReloadOutlined} from '@ant-design/icons';
+import {AimOutlined, CheckCircleOutlined} from '@ant-design/icons';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import MapViewer from '../../components/MapViewer/MapViewer';
 import DataTable from '../../components/DataTable/DataTable';
 import {matchingAPI} from '../../services/api';
-import {formatCurrency, formatTime} from '../../utils/formatters';
 import {MATCHING_STATUS} from '../../utils/constants';
 
 const {Option} = Select;
@@ -102,29 +101,26 @@ const MatchingPage = () => {
         }
     };
 
-    // 切换地图引擎
-    const handleMapEngineChange = (engine) => {
-        setMapEngine(engine);
-        message.info(`已切换到${engine === 'baidu' ? '百度地图' : 'SVG地图'}`);
-    };
+
 
     // 处理数据导出 - 简化导出字段
+    /*
     const handleExport = () => {
-        const data = matchingResults.map(result => {
+        const data = matchTable.map(result => {
             const shipmentInfo = result.shipment_info || {};
             const routeInfo = result.route_info || {};
             return {
-                '匹配ID': result.id,
                 '货物ID': result.shipment_id,
                 '路线ID': result.route_id,
+                '路线详情': routeInfo.nodes ? `${routeInfo.nodes[0]} → ${routeInfo.nodes[routeInfo.nodes.length - 1]}` : '-',
                 '起点': shipmentInfo.origin_city || '-',
                 '终点': shipmentInfo.destination_city || '-',
-                '货物数量': shipmentInfo.demand || '-',
+                '货物需求量': shipmentInfo.demand || '-',
                 '货物重量': shipmentInfo.weight ? `${shipmentInfo.weight}kg` : '-',
                 '货物体积': shipmentInfo.volume ? `${shipmentInfo.volume}m³` : '-',
-                '路线节点': routeInfo.nodes ? routeInfo.nodes.join(' → ') : '-',
                 '路线容量': routeInfo.capacity || '-',
-                '可用容量': routeInfo.available_capacity || '-',
+                '路线可用容量': routeInfo.available_capacity || '-',
+                '路线种类': routeInfo.route_category || '-',
                 '状态': result.status === 'matched' ? '已匹配' : result.status === 'pending' ? '待确认' : '已拒绝'
             };
         });
@@ -142,6 +138,7 @@ const MatchingPage = () => {
 
         message.success('匹配结果导出成功');
     };
+    */
 
     // 页面加载时获取数据
     useEffect(() => {
@@ -415,7 +412,6 @@ const MatchingPage = () => {
                                         const nodes = routeInfo.nodes || [];
                                         const costs = routeInfo.costs || [];
                                         const travelTimes = routeInfo.travel_times || [];
-                                        const totalDistance = routeInfo.total_distance || 0;
                                         const totalCost = routeInfo.total_cost || 0;
                                         const totalTravelTime = routeInfo.total_travel_time || 0;
                                         
@@ -634,8 +630,9 @@ const MatchingPage = () => {
                     columns={columns}
                     loading={loading}
                     onFilter={handleResultFilter}
+                    filterable={false}
                     exportable
-                    searchable
+                    searchable={false}
                     pagination
                     rowKey="id"
                     style={{marginTop: 16}}
