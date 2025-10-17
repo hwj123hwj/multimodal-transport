@@ -346,7 +346,7 @@ const RoutesPage = () => {
                                         </Col>
                                     </Row>
                                     <Row gutter={16} style={{marginTop: 16}}>
-                                        <Col span={8}>
+                                        <Col span={6}>
                                             <div style={{textAlign: 'center'}}>
                                                 <div style={{color: '#fa8c16', fontWeight: 'bold', fontSize: '16px'}}>
                                                     {formatDistance(selectedRoute.total_distance)}
@@ -354,7 +354,7 @@ const RoutesPage = () => {
                                                 <div style={{fontSize: '12px', color: '#666'}}>总距离</div>
                                             </div>
                                         </Col>
-                                        <Col span={8}>
+                                        <Col span={6}>
                                             <div style={{textAlign: 'center'}}>
                                                 <div style={{color: '#722ed1', fontWeight: 'bold', fontSize: '16px'}}>
                                                     {formatTime(selectedRoute.total_travel_time)}
@@ -362,12 +362,20 @@ const RoutesPage = () => {
                                                 <div style={{fontSize: '12px', color: '#666'}}>总耗时</div>
                                             </div>
                                         </Col>
-                                        <Col span={8}>
+                                        <Col span={6}>
                                             <div style={{textAlign: 'center'}}>
                                                 <div style={{color: '#eb2f96', fontWeight: 'bold', fontSize: '16px'}}>
                                                     {formatCurrency(selectedRoute.total_cost)}
                                                 </div>
                                                 <div style={{fontSize: '12px', color: '#666'}}>总成本</div>
+                                            </div>
+                                        </Col>
+                                        <Col span={6}>
+                                            <div style={{textAlign: 'center'}}>
+                                                <div style={{color: '#13c2c2', fontWeight: 'bold', fontSize: '16px'}}>
+                                                    {selectedRoute.route_category || '未分类'}
+                                                </div>
+                                                <div style={{fontSize: '12px', color: '#666'}}>路线分类</div>
                                             </div>
                                         </Col>
                                     </Row>

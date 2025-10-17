@@ -39,31 +39,19 @@ const MatchingPage = () => {
             setMatchingResults(detailedMatchings);
             setMatchTable(detailedMatchings);
 
-            // 使用摘要API获取统计信息
-            try {
-                const summaryResponse = await matchingAPI.getSummary();
-                const summaryData = summaryResponse.data?.data || summaryResponse.data;
-                
-                // 根据摘要数据更新统计信息
-                const stats = {
-                    total_shipments: summaryData.total_shipments || detailedMatchings.length,
-                    matchedRoutes: Math.round(summaryData.avg_matching_rate * summaryData.total_shipments) || 0,
-                    unmatched_shipments:summaryData.unmatched_shipments || 0,
-                    matchedShipments: summaryData.matched_shipments || 0,
-                    avgMatchScore: summaryData.avg_matching_rate ? (summaryData.avg_matching_rate * 100) : 0
-                };
-                setStatistics(stats);
-            } catch (summaryError) {
-                console.error('获取摘要信息失败:', summaryError);
-                // 如果摘要API失败，使用详细数据计算
-                const stats = {
-                    totalMatches: detailedMatchings.length,
-                    matchedRoutes: new Set(detailedMatchings.filter(m => m.status === 'matched').map(m => m.route_id)).size,
-                    matchedShipments: new Set(detailedMatchings.filter(m => m.status === 'matched').map(m => m.shipment_id)).size,
-                    avgMatchScore: 0
-                };
-                setStatistics(stats);
-            }
+
+            const summaryResponse = await matchingAPI.getSummary();
+            const summaryData = summaryResponse.data?.data || summaryResponse.data;
+
+            // 根据摘要数据更新统计信息
+            const stats = {
+                total_shipments: summaryData.total_shipments || detailedMatchings.length,
+                matchedRoutes: Math.round(summaryData.avg_matching_rate * summaryData.total_shipments) || 0,
+                unmatched_shipments:summaryData.unmatched_shipments || 0,
+                matchedShipments: summaryData.matched_shipments || 0,
+                avgMatchScore: summaryData.avg_matching_rate ? (summaryData.avg_matching_rate * 100) : 0
+            };
+            setStatistics(stats);
 
             message.success('匹配结果加载成功');
         } catch (error) {
@@ -147,16 +135,6 @@ const MatchingPage = () => {
     useEffect(() => {
         fetchMatchingResults();
     }, []);
-
-    // 获取匹配结果对应的路线和货物信息（新接口已包含详细信息）
-    // 这些函数现在不再需要，因为数据已经包含在接口返回中
-    // const getRouteInfo = (routeId) => {
-    //     return {};
-    // };
-
-    // const getShipmentInfo = (shipmentId) => {
-    //     return {};
-    // };
 
     // 获取状态颜色
     const getStatusColor = (status) => {
@@ -404,11 +382,10 @@ const MatchingPage = () => {
                                         <div>{selectedResult.id}</div>
                                     </Col>
                                     <Col span={12}>
-                                        <strong>匹配分数:</strong>
+                                        <strong>匹配情况:</strong>
                                         <div>
-                                            <Tag
-                                                color={selectedResult.match_score >= 80 ? 'green' : selectedResult.match_score >= 60 ? 'orange' : 'red'}>
-                                                {selectedResult.match_score?.toFixed(1) || '0.0'}
+                                            <Tag color={getStatusColor(selectedResult.status)}>
+                                                {selectedResult.status === 'matched' ? '已匹配' : selectedResult.status === 'pending' ? '待确认' : '已拒绝'}
                                             </Tag>
                                         </div>
                                     </Col>
@@ -511,7 +488,7 @@ const MatchingPage = () => {
                                                 {/* 总计信息 */}
                                                 <div style={{marginTop: 16, padding: '12px', backgroundColor: '#e6f7ff', borderRadius: '6px'}}>
                                                     <Row gutter={16}>
-                                                        <Col span={8}>
+                                                        <Col span={6}>
                                                             <div style={{textAlign: 'center'}}>
                                                                 <div style={{color: '#1890ff', fontWeight: 'bold', fontSize: '16px'}}>
                                                                     ¥{totalCost.toFixed(2)}
@@ -519,7 +496,7 @@ const MatchingPage = () => {
                                                                 <div style={{fontSize: '12px', color: '#666'}}>总成本</div>
                                                             </div>
                                                         </Col>
-                                                        <Col span={8}>
+                                                        <Col span={6}>
                                                             <div style={{textAlign: 'center'}}>
                                                                 <div style={{color: '#52c41a', fontWeight: 'bold', fontSize: '16px'}}>
                                                                     {totalTravelTime.toFixed(1)}h
@@ -527,12 +504,20 @@ const MatchingPage = () => {
                                                                 <div style={{fontSize: '12px', color: '#666'}}>总耗时</div>
                                                             </div>
                                                         </Col>
-                                                        <Col span={8}>
+                                                        <Col span={6}>
                                                             <div style={{textAlign: 'center'}}>
                                                                 <div style={{color: '#faad14', fontWeight: 'bold', fontSize: '16px'}}>
                                                                     {nodes.length} 个城市
                                                                 </div>
                                                                 <div style={{fontSize: '12px', color: '#666'}}>途经城市</div>
+                                                            </div>
+                                                        </Col>
+                                                        <Col span={6}>
+                                                            <div style={{textAlign: 'center'}}>
+                                                                <div style={{color: '#13c2c2', fontWeight: 'bold', fontSize: '16px'}}>
+                                                                    {routeInfo.route_category || '未分类'}
+                                                                </div>
+                                                                <div style={{fontSize: '12px', color: '#666'}}>路线分类</div>
                                                             </div>
                                                         </Col>
                                                     </Row>
@@ -605,29 +590,6 @@ const MatchingPage = () => {
                                     })()}
                                 </Card>
 
-                                <Row gutter={16} style={{marginTop: 16}}>
-                                    <Col span={8}>
-                                        <strong>状态:</strong>
-                                        <div>
-                                            <Tag color={getStatusColor(selectedResult.status)}>
-                                                {selectedResult.status === 'matched' ? '已匹配' : selectedResult.status === 'pending' ? '待确认' : '已拒绝'}
-                                            </Tag>
-                                        </div>
-                                    </Col>
-                                    <Col span={8}>
-                                        <strong>成本节约:</strong>
-                                        <div>{formatCurrency(selectedResult.cost_saving || 0)}</div>
-                                    </Col>
-                                    <Col span={8}>
-                                        <strong>时间节约:</strong>
-                                        <div>{formatTime(selectedResult.time_saving || 0)}</div>
-                                    </Col>
-                                </Row>
-
-                                <div style={{marginTop: 16}}>
-                                    <strong>创建时间:</strong>
-                                    <div>{new Date(selectedResult.created_at).toLocaleString()}</div>
-                                </div>
                             </div>
                         </Card>
                     ) : (

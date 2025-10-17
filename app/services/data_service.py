@@ -156,7 +156,8 @@ class DataService:
                     "capacity": route.capacity,
                     "current_load": route.current_load,
                     "available_capacity": route.available_capacity,
-                    "is_full": route.is_full
+                    "is_full": route.is_full,
+                    "route_category": route.route_category  # 添加路线分类信息
                 })
 
             # 修改 get_all_routes 方法的返回部分

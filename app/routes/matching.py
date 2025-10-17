@@ -177,10 +177,13 @@ async def get_detailed_matchings():
                     "route_info": {
                         "nodes": route_info.get("nodes", []) if route_info else [],
                         "node_details": route_info.get("node_details", []) if route_info else [],
+                        "costs": route_info.get("costs", []) if route_info else [],
+                        "travel_times": route_info.get("travel_times", []) if route_info else [],
                         "total_cost": route_info.get("total_cost", 0) if route_info else 0,
                         "total_travel_time": route_info.get("total_travel_time", 0) if route_info else 0,
                         "capacity": route_info.get("capacity", 0) if route_info else 0,
-                        "available_capacity": route_info.get("available_capacity", 0) if route_info else 0
+                        "available_capacity": route_info.get("available_capacity", 0) if route_info else 0,
+                        "route_category": route_info.get("route_category", "未知") if route_info else "未知"
                     } if route_info else None,
                     "status": "matched" if route_id != "Self" else "unmatched",
                 })

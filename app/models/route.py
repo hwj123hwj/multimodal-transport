@@ -18,6 +18,7 @@ class Route:
     efficiency_score: float = 0.0  # 效率评分
     total_travel_time: float = 0.0  # 总旅行时间（小时）
     total_cost: float = 0.0  # 总成本
+    route_category: str = ""  # 路线分类
 
     def __post_init__(self):
         """数据验证和后处理"""
@@ -111,6 +112,7 @@ class Route:
             'total_cost': self.total_cost,
             'costs': self.costs,
             'travel_times': self.travel_times,
+            'route_category': self.route_category,  # 添加路线分类到字典中
         }
 
     @classmethod
@@ -123,6 +125,16 @@ class Route:
         try:
             # 解析路线ID（第1列）
             route_id = int(row_data[0])
+            
+            # 根据route_id判断路线分类
+            if 1 <= route_id <= 9:
+                route_category = "西海路新通道"
+            elif 10 <= route_id <= 12:
+                route_category = "长江经济带"
+            elif 13 <= route_id <= 17:
+                route_category = "跨境公路"
+            else:
+                route_category = "未知"
 
             # 跳过mode字段（第2列，冗余字段，固定为-1）
 
@@ -177,7 +189,8 @@ class Route:
                 travel_times=travel_times,
                 capacity=capacity,
                 total_travel_time=total_travel_time,
-                total_cost=total_cost
+                total_cost=total_cost,
+                route_category=route_category
             )
         except (ValueError, IndexError, TypeError) as e:
             print(f"解析CSV行失败: {e}, 数据: {row_data[:5]}...")
