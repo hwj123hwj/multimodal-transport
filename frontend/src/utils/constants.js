@@ -2,7 +2,7 @@
 
 // API基础配置
 export const API_CONFIG = {
-  BASE_URL: 'http://localhost:8000/api',
+  BASE_URL: '/api',
   TIMEOUT: 10000,
   RETRY_COUNT: 3,
   RETRY_DELAY: 1000

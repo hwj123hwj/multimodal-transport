@@ -67,6 +67,7 @@ const formatNumber = (value) => {
  * @param {Function} props.onRowClick - 行点击事件
  * @param {Function} props.onSelectionChange - 选择变化事件
  * @param {Function} props.onReload - 重新加载事件
+ * @param {Function} props.onExport - 导出自定义事件
  * @param {Object} props.components - 自定义组件
  * @param {ReactNode} props.customSearch - 自定义搜索组件
  * @param {Function} props.onCustomSearch - 自定义搜索处理函数
@@ -89,6 +90,7 @@ const DataTable = ({
   onRowClick,
   onSelectionChange,
   onReload,
+  onExport,
   components,
   customSearch,
   onCustomSearch,
@@ -164,16 +166,45 @@ const DataTable = ({
 
   // 处理导出
   const handleExport = () => {
+    // 如果提供了自定义导出函数，则使用它
+    if (onExport) {
+      onExport();
+      return;
+    }
+    
     if (!filteredData.length) {
       message.warning('没有数据可以导出');
       return;
     }
 
-    const headers = columns.map(col => col.title).join(',');
+    // 过滤掉"操作"列
+    const exportColumns = columns.filter(col => col.title !== '操作');
+    
+    const headers = exportColumns.map(col => col.title).join(',');
     const rows = filteredData.map(record => 
-      columns.map(col => {
-        const value = record[col.dataIndex];
-        return value === null || value === undefined ? '' : `"${value}"`;
+      exportColumns.map(col => {
+        // 使用render函数或直接使用dataIndex获取值
+        let value = null;
+        if (col.render) {
+          // 注意：这里简化处理，实际render函数可能需要更多参数
+          value = col.render(record[col.dataIndex], record);
+          // 如果渲染结果是React元素，尝试获取其文本内容
+          if (value && typeof value === 'object' && value.props && value.props.children) {
+            value = value.props.children;
+          }
+        } else {
+          value = record[col.dataIndex];
+        }
+        
+        // 处理特殊值
+        if (value === null || value === undefined) {
+          value = '';
+        } else if (typeof value === 'object') {
+          value = JSON.stringify(value);
+        }
+        
+        // 转义CSV中的引号并用引号包围
+        return `"${String(value).replace(/"/g, '""')}"`;
       }).join(',')
     );
     
@@ -181,7 +212,7 @@ const DataTable = ({
     const contentType = 'text/csv;charset=utf-8;';
     const filename = `${title || '数据表'}_${new Date().toISOString().slice(0, 10)}.csv`;
     
-    const blob = new Blob([content], { type: contentType });
+    const blob = new Blob([`\uFEFF${content}`], { type: contentType });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;

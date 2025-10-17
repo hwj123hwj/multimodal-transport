@@ -5,6 +5,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import MapViewer from '../../components/MapViewer/MapViewer';
 import DataTable from '../../components/DataTable/DataTable';
 import {matchingAPI} from '../../services/api';
+import {formatCurrency, formatDistance, formatTime} from '../../utils/formatters';
 import {MATCHING_STATUS} from '../../utils/constants';
 
 const {Option} = Select;
@@ -101,10 +102,7 @@ const MatchingPage = () => {
         }
     };
 
-
-
-    // 处理数据导出 - 简化导出字段
-    /*
+    // 处理数据导出
     const handleExport = () => {
         const data = matchTable.map(result => {
             const shipmentInfo = result.shipment_info || {};
@@ -121,6 +119,9 @@ const MatchingPage = () => {
                 '路线容量': routeInfo.capacity || '-',
                 '路线可用容量': routeInfo.available_capacity || '-',
                 '路线种类': routeInfo.route_category || '-',
+                '距离': formatDistance(routeInfo.total_distance),
+                '耗时': formatTime(routeInfo.total_travel_time),
+                '成本': formatCurrency(routeInfo.total_cost),
                 '状态': result.status === 'matched' ? '已匹配' : result.status === 'pending' ? '待确认' : '已拒绝'
             };
         });
@@ -130,7 +131,7 @@ const MatchingPage = () => {
             ...data.map(row => Object.values(row).join(','))
         ].join('\n');
 
-        const blob = new Blob([csvContent], {type: 'text/csv;charset=utf-8;'});
+        const blob = new Blob([`\uFEFF${csvContent}`], {type: 'text/csv;charset=utf-8;'});
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
         link.download = `matching_results_${new Date().toISOString().split('T')[0]}.csv`;
@@ -138,7 +139,6 @@ const MatchingPage = () => {
 
         message.success('匹配结果导出成功');
     };
-    */
 
     // 页面加载时获取数据
     useEffect(() => {
@@ -636,6 +636,7 @@ const MatchingPage = () => {
                     pagination
                     rowKey="id"
                     style={{marginTop: 16}}
+                    onExport={handleExport}
                 />
             </Card>
         </div>
