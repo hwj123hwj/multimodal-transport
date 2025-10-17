@@ -145,3 +145,7 @@ Thumbs.db
 data/
 static/
 README.md
+
+# Package manager files
+*.toml
+*.lock
