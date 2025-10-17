@@ -157,6 +157,11 @@ async def get_detailed_matchings():
                 shipment_info = shipment_map.get(shipment_id, {})
                 route_info = route_map.get(route_id, {}) if route_id != "Self" else None
 
+                # 计算路线利用率（仅对已匹配的路线）
+                route_utilization = 0.0
+                if route_id != "Self":
+                    route_utilization = matching_service.calculate_route_utilization(route_id)
+
                 detailed_matchings.append({
                     "id": len(detailed_matchings) + 1,
                     "shipment_id": shipment_id,
@@ -181,7 +186,8 @@ async def get_detailed_matchings():
                         "total_travel_time": route_info.get("total_travel_time", 0) if route_info else 0,
                         "capacity": route_info.get("capacity", 0) if route_info else 0,
                         "available_capacity": route_info.get("available_capacity", 0) if route_info else 0,
-                        "route_category": route_info.get("route_category", "未知") if route_info else "未知"
+                        "route_category": route_info.get("route_category", "未知") if route_info else "未知",
+                        "utilization": route_utilization  # 添加路线利用率
                     } if route_info else None,
                     "status": "matched" if route_id != "Self" else "unmatched",
                 })

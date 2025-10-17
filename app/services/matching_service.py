@@ -148,30 +148,26 @@ class MatchingService:
         category_capacities = {
             "西海路新通道": 0,
             "长江经济带": 0,
-            "跨境公路": 0,
-            "未知": 0
+            "跨境公路": 0
         }
-
+        
         # 获取路线分类和各类路线总容量
         for route in routes_collection.get_all_routes():
             route_categories[route.route_id] = route.route_category
             category = route.route_category
             if category in category_capacities:
                 category_capacities[category] += route.capacity
-            else:
-                category_capacities["未知"] += route.capacity
 
         # 按路线分类统计匹配信息
         category_stats = {
-            "西海路新通道": {"total_shipments": 0, "matched_shipments": 0, "total_demand": 0},
-            "长江经济带": {"total_shipments": 0, "matched_shipments": 0, "total_demand": 0},
-            "跨境公路": {"total_shipments": 0, "matched_shipments": 0, "total_demand": 0},
-            "未知": {"total_shipments": 0, "matched_shipments": 0, "total_demand": 0}
+            "西海路新通道": {"total_shipments": 0, "matched_shipments": 0, "total_demand": 0, "capacity": category_capacities["西海路新通道"]},
+            "长江经济带": {"total_shipments": 0, "matched_shipments": 0, "total_demand": 0, "capacity": category_capacities["长江经济带"]},
+            "跨境公路": {"total_shipments": 0, "matched_shipments": 0, "total_demand": 0, "capacity": category_capacities["跨境公路"]}
         }
 
         total_shipments = 0
         matched_shipments = 0
-
+        
         # 加载货物数据用于计算需求量
         shipments_collection = self.data_loader.load_shipments()
 
@@ -179,7 +175,7 @@ class MatchingService:
         for matching in self.matchings:
             total_shipments += matching.total_shipments
             matched_shipments += matching.matched_shipments
-
+            
             # 遍历每个货物的分配情况
             for shipment_id, route_id in zip(matching.shipment_indices, matching.route_assignments):
                 # 如果是Self表示未匹配，跳过分类统计
@@ -188,38 +184,32 @@ class MatchingService:
 
                 # 获取路线分类
                 category = route_categories.get(route_id, "未知")
-
+                
                 # 获取货物需求量
                 shipment = shipments_collection.get_shipment(shipment_id)
                 demand = shipment.demand if shipment else 0
-
-                # 更新分类统计
+                
+                # 更新分类统计（仅统计已知分类）
                 if category in category_stats:
                     category_stats[category]["total_shipments"] += 1
                     if route_id != "Self":
                         category_stats[category]["matched_shipments"] += 1
                         category_stats[category]["total_demand"] += demand
-                else:
-                    category_stats["未知"]["total_shipments"] += 1
-                    if route_id != "Self":
-                        category_stats["未知"]["matched_shipments"] += 1
-                        category_stats["未知"]["total_demand"] += demand
 
         # 计算各类路线的匹配率和利用率
         category_matching_rates = {}
         category_utilization_rates = {}
-
+        
         for category, stats in category_stats.items():
             # 计算匹配率
             if stats["total_shipments"] > 0:
                 category_matching_rates[category] = round(stats["matched_shipments"] / stats["total_shipments"], 4)
             else:
                 category_matching_rates[category] = 0
-
+                
             # 计算利用率
-            if category_capacities[category] > 0:
-                category_utilization_rates[category] = round(
-                    (stats["total_demand"] / category_capacities[category]) * 100, 2)
+            if stats["capacity"] > 0:
+                category_utilization_rates[category] = round((stats["total_demand"] / stats["capacity"]) * 100, 2)
             else:
                 category_utilization_rates[category] = 0
 
@@ -235,9 +225,47 @@ class MatchingService:
             'avg_cpu_time': round(avg_cpu_time, 2),
             'category_matching_rates': category_matching_rates,
             'category_utilization_rates': category_utilization_rates,
-            'category_stats': category_stats,
-            'category_capacities': category_capacities
+            'category_stats': category_stats
         }
+
+    def calculate_route_utilization(self, route_id: int) -> float:
+        """计算指定路线的利用率
+        
+        Args:
+            route_id: 路线ID
+            
+        Returns:
+            float: 路线利用率（百分比）
+        """
+        if not self.matchings:
+            self.load_matchings()
+
+        if not self.matchings:
+            return 0.0
+
+        # 加载路线数据以获取路线容量等信息
+        routes_collection = self.data_loader.load_routes()
+        route_obj = routes_collection.get_route(route_id)
+        
+        if not route_obj or route_obj.capacity <= 0:
+            return 0.0
+
+        # 计算该路线上匹配的货物总需求量
+        shipments_collection = self.data_loader.load_shipments()
+        total_demand = 0
+        
+        for matching in self.matchings:
+            # 查找使用该路线的所有货物
+            shipments_on_route = matching.get_matches_by_route(route_id)
+            if shipments_on_route:
+                for shipment_id in shipments_on_route:
+                    shipment = shipments_collection.get_shipment(shipment_id)
+                    if shipment:
+                        total_demand += shipment.demand
+
+        # 计算利用率
+        utilization = (total_demand / route_obj.capacity) * 100
+        return utilization
 
     def execute_matching_algorithm(self) -> Dict[str, Any]:
         """执行匹配算法

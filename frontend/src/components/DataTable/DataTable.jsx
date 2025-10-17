@@ -68,6 +68,8 @@ const formatNumber = (value) => {
  * @param {Function} props.onSelectionChange - 选择变化事件
  * @param {Function} props.onReload - 重新加载事件
  * @param {Object} props.components - 自定义组件
+ * @param {ReactNode} props.customSearch - 自定义搜索组件
+ * @param {Function} props.onCustomSearch - 自定义搜索处理函数
  */
 const DataTable = ({
   data = [],
@@ -88,6 +90,8 @@ const DataTable = ({
   onSelectionChange,
   onReload,
   components,
+  customSearch,
+  onCustomSearch,
   ...props
 }) => {
   // 状态管理
@@ -104,7 +108,7 @@ const DataTable = ({
     let result = [...data];
 
     // 搜索过滤
-    if (searchText) {
+    if (searchText && !customSearch) {
       result = result.filter(record => {
         return columns.some(column => {
           const value = record[column.dataIndex];
@@ -138,7 +142,7 @@ const DataTable = ({
     }
 
     return result;
-  }, [data, searchText, filters, sortField, sortOrder, columns]);
+  }, [data, searchText, filters, sortField, sortOrder, columns, customSearch]);
 
   // 处理搜索
   const handleSearch = (value) => {
@@ -269,14 +273,14 @@ const DataTable = ({
 
   // 工具栏
   const renderToolbar = () => {
-    if (!searchable && !filterable && !exportable && !reloadable) {
+    if (!searchable && !filterable && !exportable && !reloadable && !customSearch) {
       return null;
     }
 
     return (
       <div className="data-table-toolbar">
         <Space>
-          {searchable && (
+          {searchable && !customSearch && (
             <Search
               placeholder="搜索..."
               allowClear
@@ -289,13 +293,28 @@ const DataTable = ({
             />
           )}
           
-          {filterable && (
+          {customSearch && (
+            <>
+              {customSearch}
+              {reloadable && (
+                <Button
+                  icon={<ReloadOutlined />}
+                  onClick={handleReload}
+                  loading={loading}
+                >
+                  刷新
+                </Button>
+              )}
+            </>
+          )}
+          
+          {!customSearch && filterable && (
             <Button icon={<FilterOutlined />}>
               筛选
             </Button>
           )}
           
-          {reloadable && (
+          {!customSearch && reloadable && (
             <Button
               icon={<ReloadOutlined />}
               onClick={handleReload}

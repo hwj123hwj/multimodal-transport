@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {Button, Card, Col, message, Row, Select, Space, Statistic, Tag} from 'antd';
+import {Button, Card, Col, message, Row, Select, Space, Statistic, Tag, Input} from 'antd';
 import {AimOutlined, ExportOutlined, ReloadOutlined} from '@ant-design/icons';
 import MapViewer from '../../components/MapViewer/MapViewer';
 import DataTable from '../../components/DataTable/DataTable';
@@ -8,6 +8,7 @@ import {formatCurrency, formatDistance, formatTime} from '../../utils/formatters
 import {ROUTE_COLORS} from '../../utils/constants';
 
 const {Option} = Select;
+
 const RoutesPage = () => {
     const [routes, setRoutes] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -20,6 +21,8 @@ const RoutesPage = () => {
         avgDuration: 0,
         avgCost: 0
     });
+    const [originSearch, setOriginSearch] = useState('');
+    const [destinationSearch, setDestinationSearch] = useState('');
 
     // 获取路线数据
     const fetchRoutes = async () => {
@@ -66,16 +69,28 @@ const RoutesPage = () => {
         setMapMode('routes');
     };
 
-    // 处理路线筛选
-    const handleRouteFilter = async (filters) => {
+    // 处理路线搜索（按起点和终点）
+    const handleRouteSearch = async () => {
         try {
             setLoading(true);
-            const response = await routesAPI.filter(filters);
-            setRoutes(response.data);
-            message.success(`筛选出 ${response.data.length} 条路线`);
+            // 只有当至少有一个搜索条件时才进行搜索
+            if (originSearch || destinationSearch) {
+                const params = {};
+                if (originSearch) params.origin = originSearch;
+                if (destinationSearch) params.destination = destinationSearch;
+                
+                const response = await routesAPI.filter(params);
+                // 修复：正确访问返回的数据结构
+                const routesData = response?.routes || response || [];
+                setRoutes(routesData);
+                message.success(`筛选出 ${routesData.length} 条路线`);
+            } else {
+                // 如果没有搜索条件，加载所有路线
+                await fetchRoutes();
+            }
         } catch (error) {
-            console.error('筛选路线失败:', error);
-            message.error('筛选路线失败');
+            console.error('搜索路线失败:', error);
+            message.error(`搜索路线失败: ${error.message || error}`);
         } finally {
             setLoading(false);
         }
@@ -87,7 +102,7 @@ const RoutesPage = () => {
         message.info(`已切换到${engine === 'baidu' ? '百度地图' : 'SVG地图'}`);
     };
 
-// 处理数据导出
+    // 处理数据导出
     const handleExport = () => {
         const data = routes.map(route => ({
             '路线ID': route.route_id,
@@ -219,6 +234,31 @@ const RoutesPage = () => {
         }
     ];
 
+    // 自定义搜索栏
+    const customSearchBar = (
+        <Space>
+            <Input 
+                placeholder="起点"
+                value={originSearch}
+                onChange={(e) => setOriginSearch(e.target.value)}
+                style={{width: 120}}
+            />
+            <Input 
+                placeholder="终点"
+                value={destinationSearch}
+                onChange={(e) => setDestinationSearch(e.target.value)}
+                style={{width: 120}}
+            />
+            <Button
+                type="primary"
+                onClick={handleRouteSearch}
+                loading={loading}
+            >
+                搜索
+            </Button>
+        </Space>
+    );
+
     return (
         <div className="routes-page">
             {/* 统计卡片 */}
@@ -283,7 +323,6 @@ const RoutesPage = () => {
                             <Option value="svg">SVG地图</Option>
                         </Select>
                         <Button
-                            type="primary"
                             icon={<ReloadOutlined/>}
                             onClick={fetchRoutes}
                             loading={loading}
@@ -488,9 +527,12 @@ const RoutesPage = () => {
                     data={routes}
                     columns={columns}
                     loading={loading}
-                    onFilter={handleRouteFilter}
+                    // 移除默认的筛选功能
+                    filterable={false}
                     exportable
-                    searchable
+                    // 移除默认的搜索功能，使用自定义搜索
+                    searchable={false}
+                    customSearch={customSearchBar}
                     pagination
                     rowKey="id"
                     style={{marginTop: 16}}

@@ -1,6 +1,7 @@
 import React, {useEffect, useState} from 'react';
 import {Button, Card, Col, message, Row, Select, Space, Statistic, Tag} from 'antd';
 import {AimOutlined, CheckCircleOutlined, ExportOutlined, ReloadOutlined} from '@ant-design/icons';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import MapViewer from '../../components/MapViewer/MapViewer';
 import DataTable from '../../components/DataTable/DataTable';
 import {matchingAPI} from '../../services/api';
@@ -21,6 +22,7 @@ const MatchingPage = () => {
         matchedShipments: 0,
         avgMatchScore: 0
     });
+    const [categoryUtilization, setCategoryUtilization] = useState([]);
 
     // 获取匹配结果数据
     const fetchMatchingResults = async () => {
@@ -53,6 +55,15 @@ const MatchingPage = () => {
             };
             setStatistics(stats);
 
+            // 处理分类利用率数据用于图表展示
+            if (summaryData.category_utilization_rates) {
+                const utilizationData = Object.entries(summaryData.category_utilization_rates).map(([category, rate]) => ({
+                    name: category,
+                    利用率: rate
+                }));
+                setCategoryUtilization(utilizationData);
+            }
+
             message.success('匹配结果加载成功');
         } catch (error) {
             console.error('获取匹配结果失败:', error);
@@ -65,6 +76,7 @@ const MatchingPage = () => {
                 matchedShipments: 0,
                 avgMatchScore: 0
             });
+            setCategoryUtilization([]);
         } finally {
             setLoading(false);
         }
@@ -316,36 +328,28 @@ const MatchingPage = () => {
                 </Col>
             </Row>
 
-            {/* 工具栏 */}
+            {/* 分类利用率图表 */}
             <Card style={{marginBottom: 24}}>
-                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                    <h3 style={{margin: 0}}>匹配结果</h3>
-                    <Space>
-                        <Select
-                            value={mapEngine}
-                            onChange={handleMapEngineChange}
-                            style={{width: 120}}
-                            size="small"
+                <div style={{height: 200}}>
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                            data={categoryUtilization}
+                            margin={{
+                                top: 20,
+                                right: 30,
+                                left: 20,
+                                bottom: 5,
+                            }}
+                            barSize={40} // 调整柱状图宽度，使其更细
                         >
-                            <Option value="baidu">百度地图</Option>
-                            <Option value="svg">SVG地图</Option>
-                        </Select>
-                        <Button
-                            type="primary"
-                            icon={<ReloadOutlined/>}
-                            onClick={fetchMatchingResults}
-                            loading={loading}
-                        >
-                            刷新
-                        </Button>
-                        <Button
-                            icon={<ExportOutlined/>}
-                            onClick={handleExport}
-                            disabled={matchingResults.length === 0}
-                        >
-                            导出
-                        </Button>
-                    </Space>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" />
+                            <YAxis domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                            <Tooltip formatter={(value) => [`${value}%`, '路线利用率']} />
+                            <Legend />
+                            <Bar dataKey="利用率" fill="#1890ff" name="路线利用率" />
+                        </BarChart>
+                    </ResponsiveContainer>
                 </div>
             </Card>
 
@@ -430,9 +434,9 @@ const MatchingPage = () => {
                                                     <Col span={8}>
                                                         <div style={{textAlign: 'center'}}>
                                                             <div style={{color: '#52c41a', fontWeight: 'bold'}}>
-                                                                📏 {totalDistance.toFixed(1)} km
+                                                                📈 {routeInfo.utilization ? routeInfo.utilization.toFixed(2) : 0}%
                                                             </div>
-                                                            <div style={{fontSize: '12px', color: '#999'}}>总距离</div>
+                                                            <div style={{fontSize: '12px', color: '#999'}}>路线利用率</div>
                                                         </div>
                                                     </Col>
                                                     <Col span={8}>

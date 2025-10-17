@@ -341,10 +341,10 @@ class DataService:
 
             matching_routes = []
             for route in routes_data["routes"]:
-                # 检查起点条件
-                origin_match = not origin or (route["nodes"] and route["nodes"][0] == int(origin))
-                # 检查终点条件
-                dest_match = not destination or (route["nodes"] and route["nodes"][-1] == int(destination))
+                # 检查起点条件 - 比较城市名称而不是节点ID
+                origin_match = not origin or (route["nodes"] and route["nodes"][0] == origin)
+                # 检查终点条件 - 比较城市名称而不是节点ID
+                dest_match = not destination or (route["nodes"] and route["nodes"][-1] == destination)
 
                 if origin_match and dest_match:
                     matching_routes.append(route)

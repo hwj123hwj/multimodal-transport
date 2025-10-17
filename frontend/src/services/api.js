@@ -9,6 +9,13 @@ const api = axios.create({
     headers: {
         'Content-Type': 'application/json',
     },
+    paramsSerializer: {
+        encode: (params) => {
+            return Object.keys(params).map(key => {
+                return encodeURIComponent(key) + '=' + encodeURIComponent(params[key]);
+            }).join('&');
+        }
+    }
 });
 
 // 文件上传专用API实例
@@ -18,6 +25,13 @@ const uploadApi = axios.create({
     headers: {
         'Content-Type': 'multipart/form-data',
     },
+    paramsSerializer: {
+        encode: (params) => {
+            return Object.keys(params).map(key => {
+                return encodeURIComponent(key) + '=' + encodeURIComponent(params[key]);
+            }).join('&');
+        }
+    }
 });
 
 // 请求拦截器
