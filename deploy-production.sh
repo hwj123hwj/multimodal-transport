@@ -20,7 +20,7 @@ fi
 
 # 停止现有容器
 echo "🛑 停止现有容器..."
-docker-compose down || true
+sudo docker-compose down || true
 
 # 构建前端
 echo "📦 构建前端应用..."
@@ -36,7 +36,7 @@ cp -r cmake-build-debug/data/* data/ || true
 
 # 构建并启动服务
 echo "🏗️ 构建并启动Docker服务..."
-docker-compose up -d --build
+sudo docker-compose up -d --build
 
 # 等待服务启动
 echo "⏳ 等待服务启动..."
@@ -44,7 +44,7 @@ sleep 30
 
 # 检查服务状态
 echo "🔍 检查服务状态..."
-docker-compose ps
+sudo docker-compose ps
 
 # 健康检查
 echo "🏥 执行健康检查..."
@@ -52,7 +52,7 @@ if curl -f http://localhost/health &> /dev/null; then
     echo "✅ 后端服务健康检查通过"
 else
     echo "❌ 后端服务健康检查失败"
-    docker-compose logs backend
+    sudo docker-compose logs backend
     exit 1
 fi
 
