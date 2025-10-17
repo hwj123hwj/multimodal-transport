@@ -144,13 +144,7 @@ const MatchingPage = () => {
 
     // 表格列配置 - 根据后端数据优化显示
     const columns = [
-        {
-            title: '匹配ID',
-            dataIndex: 'id',
-            key: 'id',
-            width: 80,
-            sorter: (a, b) => a.id - b.id
-        },
+
         {
             title: '货物ID',
             dataIndex: 'shipment_id',
@@ -166,7 +160,7 @@ const MatchingPage = () => {
         {
             title: '路线详情',
             key: 'route',
-            width: 200,
+            width: 140,
             render: (_, record) => {
                 const routeInfo = record.route_info;
                 if (!routeInfo || !routeInfo.nodes) {
@@ -230,6 +224,21 @@ const MatchingPage = () => {
                         <div>总容量: {routeInfo.capacity}</div>
                         <div>可用: {routeInfo.available_capacity}</div>
                     </div>
+                );
+            }
+        },
+        {
+            title: '路线种类',
+            key: 'route_category',
+            width: 120,
+            render: (_, record) => {
+                const routeInfo = record.route_info;
+                if (!routeInfo) return '-';
+                const category = routeInfo.route_category;
+                return (
+                    <Tag color={category === '西海路新通道' ? 'green' : category === '长江经济带' ? 'blue' : category === '跨境公路' ? 'orange' : 'default'}>
+                        {category || '未分类'}
+                    </Tag>
                 );
             }
         },

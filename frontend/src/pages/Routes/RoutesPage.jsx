@@ -169,6 +169,17 @@ const RoutesPage = () => {
             sorter: (a, b) => a.total_cost - b.total_cost
         },
         {
+            title: '路线种类',
+            dataIndex: 'route_category',
+            key: 'route_category',
+            width: 120,
+            render: (category) => (
+                <Tag color={category === '西海路新通道' ? 'green' : category === '长江经济带' ? 'blue' : category === '跨境公路' ? 'orange' : 'default'}>
+                    {category || '未分类'}
+                </Tag>
+            )
+        },
+        {
             title: '途经城市',
             dataIndex: 'nodes',
             key: 'nodes',

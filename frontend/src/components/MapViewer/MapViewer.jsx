@@ -84,31 +84,6 @@ const BaiduMapViewer = ({
                 mapServiceRef.current.addRouteMarkers(route);
             });
         }
-
-        // 可选：显示货物标记（根据需求可选择隐藏）
-        // if (shipments && shipments.length > 0) {
-        //     shipments.forEach(shipment => {
-        //         let color = '#1890ff'; // 默认蓝色
-
-        //         if (shipment.assigned_route === 'Self') {
-        //             color = '#faad14'; // 自营 - 橙色
-        //         } else if (shipment.assigned_route) {
-        //             color = '#52c41a'; // 已匹配 - 绿色
-        //         } else {
-        //             color = '#f5222d'; // 未匹配 - 红色
-        //         }
-
-        //         mapServiceRef.current.addShipmentMarker(shipment, {
-        //             color,
-        //             onClick: () => {
-        //                 if (onShipmentClick) {
-        //                     onShipmentClick(shipment);
-        //                 }
-        //             }
-        //         });
-        //     });
-        // }
-
         // 自适应显示
         if (routes && routes.length > 0) {
             mapServiceRef.current.fitRoutes(routes);
@@ -262,11 +237,6 @@ const BaiduMapViewer = ({
                                 >
                                     刷新
                                 </Button>
-                                <Button
-                                    icon={isFullscreen ? <ShrinkOutlined/> : <ExpandOutlined/>}
-                                    onClick={toggleFullscreen}
-                                    size="small"
-                                />
                             </Space>
                         )}
                     </div>

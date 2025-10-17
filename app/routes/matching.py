@@ -2,14 +2,20 @@
 匹配算法API路由
 提供匹配算法的REST API接口
 """
+import asyncio
 import logging
+from concurrent.futures import ThreadPoolExecutor
 
 from fastapi import APIRouter
+from fastapi import HTTPException, BackgroundTasks
 
 from ..config import get_data_dir
 from ..services.data_loader import DataLoader
 from ..services.data_service import DataService
 from ..services.matching_service import MatchingService
+
+# 创建线程池（根据服务器CPU核心数调整）
+thread_pool = ThreadPoolExecutor(max_workers=4)
 
 logger = logging.getLogger(__name__)
 
@@ -73,14 +79,6 @@ async def get_matching_summary():
     except Exception as e:
         logger.error(f"获取匹配摘要失败: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
-
-
-from concurrent.futures import ThreadPoolExecutor
-import asyncio
-from fastapi import HTTPException, BackgroundTasks
-
-# 创建线程池（根据服务器CPU核心数调整）
-thread_pool = ThreadPoolExecutor(max_workers=4)
 
 
 @router.post("/matching/execute")

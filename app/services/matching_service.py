@@ -123,8 +123,53 @@ class MatchingService:
                 'avg_cpu_time': 0
             }
 
-        total_shipments = sum(m.total_shipments for m in self.matchings)
-        matched_shipments = sum(m.matched_shipments for m in self.matchings)
+        # 加载路线数据以获取路线分类信息
+        routes_collection = self.data_loader.load_routes()
+        route_categories = {}
+        for route in routes_collection.get_all_routes():
+            route_categories[route.route_id] = route.route_category
+
+        # 按路线分类统计匹配信息
+        category_stats = {
+            "西海路新通道": {"total_shipments": 0, "matched_shipments": 0},
+            "长江经济带": {"total_shipments": 0, "matched_shipments": 0},
+            "跨境公路": {"total_shipments": 0, "matched_shipments": 0},
+            "未知": {"total_shipments": 0, "matched_shipments": 0}
+        }
+
+        total_shipments = 0
+        matched_shipments = 0
+        
+        # 遍历所有匹配结果，统计各类路线的匹配情况
+        for matching in self.matchings:
+            total_shipments += matching.total_shipments
+            matched_shipments += matching.matched_shipments
+            
+            # 遍历每个货物的分配情况
+            for shipment_id, route_id in zip(matching.shipment_indices, matching.route_assignments):
+                # 如果是Self表示未匹配，跳过分类统计
+                if route_id == "Self":
+                    continue
+                    
+                # 获取路线分类
+                category = route_categories.get(route_id, "未知")
+                
+                # 更新分类统计
+                if category in category_stats:
+                    category_stats[category]["total_shipments"] += 1
+                    category_stats[category]["matched_shipments"] += 1
+                else:
+                    category_stats["未知"]["total_shipments"] += 1
+                    category_stats["未知"]["matched_shipments"] += 1
+
+        # 计算各类路线的匹配率
+        category_matching_rates = {}
+        for category, stats in category_stats.items():
+            if stats["total_shipments"] > 0:
+                category_matching_rates[category] = round(stats["matched_shipments"] / stats["total_shipments"], 4)
+            else:
+                category_matching_rates[category] = 0
+
         avg_matching_rate = sum(m.matching_rate for m in self.matchings) / len(self.matchings)
         avg_cpu_time = sum(m.cpu_time for m in self.matchings) / len(self.matchings)
 
@@ -134,7 +179,9 @@ class MatchingService:
             'total_shipments': total_shipments,
             'matched_shipments': matched_shipments,
             'unmatched_shipments': total_shipments - matched_shipments,
-            'avg_cpu_time': round(avg_cpu_time, 2)
+            'avg_cpu_time': round(avg_cpu_time, 2),
+            'category_matching_rates': category_matching_rates,
+            'category_stats': category_stats
         }
 
     def execute_matching_algorithm(self) -> Dict[str, Any]:
