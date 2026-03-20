@@ -34,7 +34,7 @@ jobs:
               --exclude='frontend/node_modules' \
               --exclude='frontend/src' \
               --exclude='frontend/public' \
-              -czf deploy.tar.gz .
+              -czf /tmp/deploy.tar.gz .
 
       # ── 3. 上传到服务器并解压 ─────────────────────────────────────
       - name: Upload to server
@@ -43,7 +43,7 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "deploy.tar.gz"
+          source: "/tmp/deploy.tar.gz"
           target: "/opt/tms_upload"
 
       # ── 4. 服务器上解压并重启容器 ─────────────────────────────────
