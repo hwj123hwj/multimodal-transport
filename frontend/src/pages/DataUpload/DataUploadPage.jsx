@@ -13,8 +13,7 @@ const DataUploadPage = () => {
     const [uploading, setUploading] = useState(false);
     const [executing, setExecuting] = useState(false);
     const [uploadProgress, setUploadProgress] = useState({routes: 0, shipments: 0});
-    const [executionProgress, setExecutionProgress] = useState(0);
-    const [executionStatus, setExecutionStatus] = useState('');
+    const [executionResult, setExecutionResult] = useState(null); // 真实执行结果
     const [uploadHistory, setUploadHistory] = useState([]);
     const [filePreviews, setFilePreviews] = useState({});
 
@@ -51,7 +50,7 @@ const DataUploadPage = () => {
                 message.error('文件大小不能超过10MB!');
                 return false;
             }
-            
+
             // 文件名校验：路线文件必须包含"route"，货物文件必须包含"shipment"
             const fileName = file.name.toLowerCase();
             if (fileType === 'route' && !fileName.includes('route')) {
@@ -62,7 +61,7 @@ const DataUploadPage = () => {
                 message.error('货物数据文件名必须包含"shipment"字样!');
                 return false;
             }
-            
+
             setFile(file);
             return false; // 阻止自动上传
         },
@@ -165,37 +164,14 @@ const DataUploadPage = () => {
     // 执行算法
     const handleExecuteAlgorithm = useCallback(async () => {
         setExecuting(true);
-        setExecutionProgress(0);
-        setExecutionStatus('正在准备数据...');
+        setExecutionResult(null);
 
         try {
-            // 模拟算法执行进度
-            const statusMessages = [
-                '正在读取路线数据...',
-                '正在读取货物数据...',
-                '正在计算最优匹配...',
-                '正在生成路线规划...',
-                '正在保存匹配结果...'
-            ];
-
-            let progress = 0;
-            const progressInterval = setInterval(() => {
-                progress += 20;
-                setExecutionProgress(progress);
-                if (progress <= 100) {
-                    setExecutionStatus(statusMessages[Math.floor(progress / 20) - 1] || '算法执行完成');
-                }
-            }, 1000);
-
-            // eslint-disable-next-line no-unused-vars
             const response = await executeAlgorithmAPI.runMatching();
-
-            clearInterval(progressInterval);
-            setExecutionProgress(100);
-            setExecutionStatus('算法执行完成');
-
+            // 拦截器返回完整body，result在 response.result.summary
+            const summary = response?.result?.summary || response?.summary || null;
+            setExecutionResult(summary);
             message.success('算法执行成功！匹配结果已生成');
-
         } catch (error) {
             message.error('算法执行失败：' + (error.message || '未知错误'));
         } finally {
@@ -393,45 +369,90 @@ const DataUploadPage = () => {
                                 loading={executing}
                                 disabled={uploading}
                             >
-                                执行算法
+                                {executing ? '运行中...' : '执行算法'}
                             </Button>
                         }
                     >
-                        <div className="execution-content">
-                            <Space direction="vertical" size="large" style={{width: '100%'}}>
-                                <div className="execution-info">
-                                    <Text strong>路线-货物匹配算法</Text>
-                                    <Paragraph type="secondary" style={{marginTop: 8}}>
-                                        基于遗传算法和启发式搜索的最优路线规划算法
-                                    </Paragraph>
-                                </div>
+                        <Space direction="vertical" size="large" style={{width: '100%'}}>
+                            <div>
+                                <Text strong>稳定匹配算法</Text>
+                                <Paragraph type="secondary" style={{marginTop: 8, marginBottom: 0}}>
+                                    基于稳定匹配理论，为货物分配最优运输路线。算法通常在10~30秒内完成。
+                                </Paragraph>
+                            </div>
 
-                                {executing && (
-                                    <div className="execution-progress">
-                                        <Text type="secondary">{executionStatus}</Text>
-                                        <Progress
-                                            percent={executionProgress}
-                                            status="active"
-                                            strokeColor={{
-                                                '0%': '#108ee9',
-                                                '100%': '#87d068',
-                                            }}
-                                        />
+                            {/* 执行中状态 */}
+                            {executing && (
+                                <div style={{textAlign: 'center', padding: '24px 0'}}>
+                                    <Progress type="circle" percent={100} status="active" size={80}/>
+                                    <div style={{marginTop: 12, color: '#1890ff'}}>算法执行中，请稍候...</div>
+                                </div>
+                            )}
+
+                            {/* 执行完成结果 */}
+                            {!executing && executionResult && (
+                                <div>
+                                    <div style={{
+                                        background: '#f6ffed',
+                                        border: '1px solid #b7eb8f',
+                                        borderRadius: 6,
+                                        padding: '12px 16px',
+                                        marginBottom: 12
+                                    }}>
+                                        <CheckCircleOutlined style={{color: '#52c41a', marginRight: 8}}/>
+                                        <Text strong style={{color: '#52c41a'}}>执行成功</Text>
                                     </div>
-                                )}
-
-                                <div className="execution-steps">
-                                    <Title level={5} style={{marginBottom: 16}}>算法步骤：</Title>
-                                    <Space direction="vertical" size="small">
-                                        <Text>1. 数据预处理与验证</Text>
-                                        <Text>2. 路线可行性分析</Text>
-                                        <Text>3. 货物聚类与分组</Text>
-                                        <Text>4. 最优匹配计算</Text>
-                                        <Text>5. 结果验证与输出</Text>
-                                    </Space>
+                                    <Row gutter={[8, 8]}>
+                                        <Col span={12}>
+                                            <div style={{textAlign: 'center', padding: 8, background: '#fafafa', borderRadius: 4}}>
+                                                <div style={{fontSize: 22, fontWeight: 'bold', color: '#1890ff'}}>
+                                                    {executionResult.matched_shipments ?? 0}
+                                                </div>
+                                                <div style={{fontSize: 12, color: '#888'}}>匹配成功</div>
+                                            </div>
+                                        </Col>
+                                        <Col span={12}>
+                                            <div style={{textAlign: 'center', padding: 8, background: '#fafafa', borderRadius: 4}}>
+                                                <div style={{fontSize: 22, fontWeight: 'bold', color: '#ff4d4f'}}>
+                                                    {executionResult.unmatched_shipments ?? 0}
+                                                </div>
+                                                <div style={{fontSize: 12, color: '#888'}}>未匹配</div>
+                                            </div>
+                                        </Col>
+                                        <Col span={12}>
+                                            <div style={{textAlign: 'center', padding: 8, background: '#fafafa', borderRadius: 4}}>
+                                                <div style={{fontSize: 22, fontWeight: 'bold', color: '#52c41a'}}>
+                                                    {executionResult.avg_matching_rate
+                                                        ? `${(executionResult.avg_matching_rate * 100).toFixed(1)}%`
+                                                        : '0%'}
+                                                </div>
+                                                <div style={{fontSize: 12, color: '#888'}}>匹配率</div>
+                                            </div>
+                                        </Col>
+                                        <Col span={12}>
+                                            <div style={{textAlign: 'center', padding: 8, background: '#fafafa', borderRadius: 4}}>
+                                                <div style={{fontSize: 22, fontWeight: 'bold', color: '#722ed1'}}>
+                                                    {executionResult.avg_cpu_time ?? 0}s
+                                                </div>
+                                                <div style={{fontSize: 12, color: '#888'}}>耗时</div>
+                                            </div>
+                                        </Col>
+                                    </Row>
+                                    <div style={{marginTop: 8, fontSize: 12, color: '#888', textAlign: 'center'}}>
+                                        结果稳定：{executionResult.avg_matching_rate ? '是' : '—'}
+                                        &nbsp;·&nbsp;
+                                        前往「匹配结果」页面查看详情
+                                    </div>
                                 </div>
-                            </Space>
-                        </div>
+                            )}
+
+                            {/* 未执行时的提示 */}
+                            {!executing && !executionResult && (
+                                <div style={{color: '#888', fontSize: 13}}>
+                                    <div>执行前请确保已上传或使用默认的 route.csv 和 shipment.csv。</div>
+                                </div>
+                            )}
+                        </Space>
                     </Card>
                 </Col>
             </Row>
