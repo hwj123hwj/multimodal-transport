@@ -130,14 +130,25 @@ const SVGMapViewer = ({
         if (!routes || routes.length === 0) return;
 
         routes.forEach((route, index) => {
-            if (!route.nodes || route.nodes.length < 2) return;
+            // 优先用 node_details（含经纬度），兜底用 nodes（数字ID）
+            const nodeList = route.node_details && route.node_details.length >= 2
+                ? route.node_details
+                : null;
+            if (!nodeList && (!route.nodes || route.nodes.length < 2)) return;
 
             const color = getRouteColor(index);
-            const points = route.nodes.map(nodeId => {
-                const city = getCityInfo(nodeId);
-                const coords = convertToSVGCoordinates(city.longitude, city.latitude);
-                return `${coords.x},${coords.y}`;
-            }).join(' ');
+
+            // 根据数据来源生成坐标点
+            const points = nodeList
+                ? nodeList.map(nd => {
+                    const coords = convertToSVGCoordinates(nd.longitude, nd.latitude);
+                    return `${coords.x},${coords.y}`;
+                }).join(' ')
+                : route.nodes.map(nodeId => {
+                    const city = getCityInfo(nodeId);
+                    const coords = convertToSVGCoordinates(city.longitude, city.latitude);
+                    return `${coords.x},${coords.y}`;
+                }).join(' ');
 
             // 绘制路线折线
             const polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
@@ -171,9 +182,11 @@ const SVGMapViewer = ({
             svgRef.current.appendChild(polyline);
 
             // 绘制节点标记
-            route.nodes.forEach((nodeId, nodeIndex) => {
-                const city = getCityInfo(nodeId);
-                const coords = convertToSVGCoordinates(city.longitude, city.latitude);
+            const nodesToDraw = nodeList || route.nodes.map(id => getCityInfo(id));
+            nodesToDraw.forEach((nd, nodeIndex) => {
+                const lon = nd.longitude !== undefined ? nd.longitude : nd.longitude;
+                const lat = nd.latitude !== undefined ? nd.latitude : nd.latitude;
+                const coords = convertToSVGCoordinates(lon, lat);
 
                 // 节点圆圈
                 const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');

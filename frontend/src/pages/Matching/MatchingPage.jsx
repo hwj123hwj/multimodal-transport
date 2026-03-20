@@ -328,7 +328,10 @@ const MatchingPage = () => {
                         <MapViewer
                             mode="matching"
                             matchings={selectedResult ? [selectedResult] : matchingResults}
-                            routes={selectedResult ? [selectedResult.route_info] : []}
+                            routes={selectedResult
+                                ? (selectedResult.route_info ? [selectedResult.route_info] : [])
+                                : matchingResults.filter(r => r.route_info).map(r => r.route_info)
+                            }
                             shipments={selectedResult ? [selectedResult.shipment_info] : []}
                             onRouteClick={handleResultSelect}
                             mapEngine={mapEngine}

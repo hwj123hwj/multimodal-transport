@@ -1,6 +1,6 @@
 import React, {useCallback, useEffect, useState} from 'react';
-import {Button, Card, Col, List, message, Popconfirm, Progress, Row, Space, Tag, Typography, Upload} from 'antd';
-import {CheckCircleOutlined, DeleteOutlined, EyeOutlined, InboxOutlined, PlayCircleOutlined} from '@ant-design/icons';
+import {Button, Card, Col, List, message, Popconfirm, Progress, Row, Space, Spin, Tag, Typography, Upload} from 'antd';
+import {CheckCircleOutlined, DeleteOutlined, EyeOutlined, InboxOutlined, LoadingOutlined, PlayCircleOutlined} from '@ant-design/icons';
 import {executeAlgorithmAPI, uploadDataAPI} from '../../services/api';
 import './DataUploadPage.css';
 
@@ -384,8 +384,9 @@ const DataUploadPage = () => {
                             {/* 执行中状态 */}
                             {executing && (
                                 <div style={{textAlign: 'center', padding: '24px 0'}}>
-                                    <Progress type="circle" percent={100} status="active" size={80}/>
-                                    <div style={{marginTop: 12, color: '#1890ff'}}>算法执行中，请稍候...</div>
+                                    <Spin indicator={<LoadingOutlined style={{fontSize: 48}} spin/>}/>
+                                    <div style={{marginTop: 16, color: '#1890ff'}}>算法执行中，请稍候...</div>
+                                    <div style={{marginTop: 4, color: '#888', fontSize: 12}}>通常需要10~30秒</div>
                                 </div>
                             )}
 
