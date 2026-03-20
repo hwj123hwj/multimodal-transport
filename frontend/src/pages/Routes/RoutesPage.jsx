@@ -29,8 +29,8 @@ const RoutesPage = () => {
         try {
             setLoading(true);
             const response = await routesAPI.getAll();
-            // 拦截器已解包 response.data，后端返回 {routes:[]}
-            const data = response?.routes || [];
+            // 拦截器返回完整body {status, data}，后端返回 {status, data:{routes:[]}}
+            const data = response?.data?.routes || [];
 
             setRoutes(data);
 
@@ -75,7 +75,7 @@ const RoutesPage = () => {
                 if (destinationSearch) params.destination = destinationSearch;
 
                 const response = await routesAPI.filter(params);
-                // 拦截器已解包 response.data，后端 filter 返回 {routes:[]}
+                // filter接口返回 {status, routes:[]}（注意该接口未包装在data里）
                 const routesData = response?.routes || [];
                 setRoutes(routesData);
                 message.success(`筛选出 ${routesData.length} 条路线`);

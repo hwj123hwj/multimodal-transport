@@ -21,8 +21,8 @@ const ShipmentsPage = () => {
         setLoading(true);
         try {
             const response = await shipmentsAPI.getAll();
-            // 拦截器已解包 response.data，后端返回 {shipments:[]}
-            let data = response?.shipments || [];
+            // 拦截器返回完整body {status, data}，后端返回 {status, data:{shipments:[]}}
+            let data = response?.data?.shipments || [];
             if (!Array.isArray(data)) data = [];
 
             // 起点城市筛选

@@ -67,9 +67,9 @@ export const DashboardPage = () => {
                 matchingAPI.getMatching()
             ]);
 
-            // 拦截器已解包 response.data，直接访问后端JSON结构
-            const routesData = routesRes?.routes || [];
-            const shipmentsData = shipmentsRes?.shipments || [];
+            // 拦截器返回 response.data，即后端完整body: {status, data}
+            const routesData = routesRes?.data?.routes || [];
+            const shipmentsData = shipmentsRes?.data?.shipments || [];
             const matchingData = matchingRes?.data || [];
             const matchRoutesShipmentsData = matchRoutesShipments?.data || [];
 
