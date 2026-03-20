@@ -125,6 +125,22 @@ async def upload_data_file(
                 detail=f"文件格式验证失败: {str(e)}"
             )
 
+        # 记录真实上传时间
+        import json as _json
+        upload_record_path = data_dir / ".upload_records.json"
+        upload_records: dict = {}
+        if upload_record_path.exists():
+            try:
+                upload_records = _json.loads(upload_record_path.read_text(encoding="utf-8"))
+            except Exception:
+                upload_records = {}
+        upload_records[filename] = datetime.now().isoformat()
+        upload_record_path.write_text(_json.dumps(upload_records, ensure_ascii=False), encoding="utf-8")
+
+        # 上传后清除服务缓存，确保下次读取新文件
+        from ..services import data_service
+        data_service.clear_cache()
+
         # 获取文件大小
         file_size = file_path.stat().st_size
 
@@ -153,22 +169,31 @@ async def upload_data_file(
 
 @router.get("/uploads")
 async def get_upload_history() -> Dict[str, Any]:
-    """获取上传历史记录"""
+    """获取上传历史记录（只显示用户实际上传过的文件）"""
     try:
         data_dir = Path(get_data_dir())
-        files = []
+        # 用一个 JSON 记录文件追踪真实上传时间，避免用文件系统mtime
+        upload_record_path = data_dir / ".upload_records.json"
+        upload_records: dict = {}
+        if upload_record_path.exists():
+            import json
+            try:
+                upload_records = json.loads(upload_record_path.read_text(encoding="utf-8"))
+            except Exception:
+                upload_records = {}
 
-        # 检查固定的两个文件
+        files = []
         for file_type, filename in [("route", "route.csv"), ("shipment", "shipment.csv")]:
             file_path = data_dir / filename
-            if file_path.exists():
+            # 只有在上传记录里才算用户上传过
+            if file_path.exists() and filename in upload_records:
                 try:
                     stat = file_path.stat()
                     files.append({
                         "filename": filename,
                         "file_type": file_type,
                         "file_size": stat.st_size,
-                        "upload_time": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                        "upload_time": upload_records[filename],
                         "file_path": str(file_path)
                     })
                 except Exception as e:
@@ -274,6 +299,21 @@ async def delete_uploaded_file(filename: str) -> Dict[str, Any]:
 
         # 删除文件
         file_path.unlink()
+
+        # 清除上传记录
+        import json as _json
+        upload_record_path = data_dir / ".upload_records.json"
+        if upload_record_path.exists():
+            try:
+                records = _json.loads(upload_record_path.read_text(encoding="utf-8"))
+                records.pop(filename, None)
+                upload_record_path.write_text(_json.dumps(records, ensure_ascii=False), encoding="utf-8")
+            except Exception:
+                pass
+
+        # 清除服务缓存
+        from ..services import data_service
+        data_service.clear_cache()
 
         return {
             "status": "success",
