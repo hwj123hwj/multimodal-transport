@@ -23,62 +23,53 @@ jobs:
 
       - name: Build frontend
         working-directory: frontend
+        env:
+          CI: false        # 不把warning当error，避免旧依赖警告中断构建
         run: |
           npm ci
           npm run build
 
-      # ── 2. 打包（排除不需要的目录） ────────────────────────────────
-      - name: Package
+      # ── 2. 配置 SSH，用于后续 rsync 和远程命令 ────────────────────
+      - name: Setup SSH
         run: |
-          tar --exclude='.git' \
-              --exclude='frontend/node_modules' \
-              --exclude='frontend/src' \
-              --exclude='frontend/public' \
-              -czf /tmp/deploy.tar.gz .
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
 
-      # ── 3. 上传到服务器并解压 ─────────────────────────────────────
-      - name: Upload to server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "/tmp/deploy.tar.gz"
-          target: "/opt/tms_upload"
+      # ── 3. 用 rsync 同步代码和前端产物到服务器 ────────────────────
+      - name: Sync to server
+        run: |
+          rsync -az --delete \
+            --exclude='.git' \
+            --exclude='frontend/node_modules' \
+            --exclude='frontend/src' \
+            --exclude='frontend/public' \
+            -e "ssh -i ~/.ssh/deploy_key" \
+            ./ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/opt/tms/
 
-      # ── 4. 服务器上解压并重启容器 ─────────────────────────────────
-      - name: Deploy on server
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            set -e
+      # ── 4. 服务器上重建并启动容器 ─────────────────────────────────
+      - name: Restart services
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+              ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'ENDSSH'
+          set -e
+          cd /opt/tms
 
-            # 解压到部署目录
-            mkdir -p /opt/tms
-            tar -xzf /opt/tms_upload/deploy.tar.gz -C /opt/tms
-            rm /opt/tms_upload/deploy.tar.gz
+          docker compose down --remove-orphans
+          docker compose build --no-cache backend
+          docker compose up -d
 
-            cd /opt/tms
+          echo "等待服务启动..."
+          for i in $(seq 1 12); do
+            sleep 5
+            STATUS=$(docker inspect tms_backend --format='{{.State.Health.Status}}' 2>/dev/null || echo "starting")
+            echo "[$i/12] 状态: $STATUS"
+            if [ "$STATUS" = "healthy" ]; then
+              echo "服务已就绪"
+              break
+            fi
+          done
 
-            # 重建并启动容器
-            docker compose down --remove-orphans
-            docker compose build --no-cache backend
-            docker compose up -d
-
-            # 等待健康检查通过（最多60秒）
-            echo "等待服务启动..."
-            for i in $(seq 1 12); do
-              sleep 5
-              if docker inspect tms_backend --format='{{.State.Health.Status}}' 2>/dev/null | grep -q "healthy"; then
-                echo "服务已就绪"
-                docker compose ps
-                exit 0
-              fi
-              echo "等待中... ($i/12)"
-            done
-
-            # 超时但不报错，输出当前状态
-            docker compose ps
+          docker compose ps
+          ENDSSH
