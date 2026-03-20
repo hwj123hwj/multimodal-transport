@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {Button, Card, Col, message, Row, Select, Space, Statistic, Tag} from 'antd';
+import {Button, Card, Col, message, Row, Space, Statistic, Tag} from 'antd';
 import {AimOutlined, CheckCircleOutlined} from '@ant-design/icons';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import MapViewer from '../../components/MapViewer/MapViewer';
@@ -8,14 +8,12 @@ import {matchingAPI} from '../../services/api';
 import {formatCurrency, formatDistance, formatTime} from '../../utils/formatters';
 import {MATCHING_STATUS} from '../../utils/constants';
 
-const {Option} = Select;
-
 const MatchingPage = () => {
     const [matchingResults, setMatchingResults] = useState([]);
     const [matchTable, setMatchTable] = useState([]);
     const [loading, setLoading] = useState(false);
     const [selectedResult, setSelectedResult] = useState(null);
-    const [mapEngine, setMapEngine] = useState('baidu');
+    const [mapEngine] = useState('baidu');
     const [statistics, setStatistics] = useState({
         totalMatches: 0,
         matchedRoutes: 0,

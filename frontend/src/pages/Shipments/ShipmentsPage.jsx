@@ -279,7 +279,6 @@ const ShipmentsPage = () => {
                 <Table
                     columns={columns}
                     dataSource={shipments}
-                    rowKey="id"
                     loading={loading}
                     rowKey="shipment_id"
                     pagination={{

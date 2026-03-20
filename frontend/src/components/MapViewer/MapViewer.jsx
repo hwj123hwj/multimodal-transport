@@ -1,6 +1,6 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {Button, Card, message, Select, Space} from 'antd';
-import {ExpandOutlined, ReloadOutlined, ShrinkOutlined} from '@ant-design/icons';
+import {ReloadOutlined} from '@ant-design/icons';
 import MapService from '../../services/mapService';
 import SVGMapViewer from './SVGMapViewer';
 import {getRouteColor} from '../../utils/formatters';
@@ -88,7 +88,8 @@ const BaiduMapViewer = ({
         if (routes && routes.length > 0) {
             mapServiceRef.current.fitRoutes(routes);
         }
-    }, [routes, shipments, matchings, onRouteClick, onShipmentClick]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [routes, matchings, onRouteClick]);
 
     // 刷新地图数据
     const refreshMapData = useCallback(() => {
@@ -180,7 +181,7 @@ const BaiduMapViewer = ({
     }, [routes, shipments, matchings, mode, refreshMapData]);
 
     // 切换全屏
-    const toggleFullscreen = () => {
+    const toggleFullscreen = () => { // eslint-disable-line no-unused-vars
         setIsFullscreen(!isFullscreen);
         setTimeout(() => {
             if (mapServiceRef.current) {
