@@ -172,45 +172,16 @@ export const uploadDataAPI = {
 export const executeAlgorithmAPI = {
     /**
      * 执行匹配算法
-     * @param {Object} params - 算法参数
      * @returns {Promise} 执行结果
      */
-    runMatching: async (params = {}) => {
+    runMatching: async () => {
         try {
-            const response = await api.post('/matching/execute', params, {
+            const response = await api.post('/matching/execute', {}, {
                 timeout: 300000, // 5分钟超时
             });
             return response;
         } catch (error) {
             console.error('算法执行失败:', error);
-            throw error;
-        }
-    },
-
-    /**
-     * 获取算法执行状态
-     * @returns {Promise} 算法状态
-     */
-    getAlgorithmStatus: async () => {
-        try {
-            const response = await api.get('/algorithm/status');
-            return response;
-        } catch (error) {
-            console.error('获取算法状态失败:', error);
-            throw error;
-        }
-    },
-
-    /**
-     * 获取算法执行历史
-     * @returns {Promise} 执行历史
-     */
-    getExecutionHistory: async () => {
-        try {
-            const response = await api.get('/algorithm/history');
-            return response;
-        } catch (error) {
-            console.error('获取执行历史失败:', error);
             throw error;
         }
     },

@@ -1,53 +1,32 @@
-# 使用本地nginx镜像作为基础
-FROM nginx:alpine
+FROM python:3.12-slim
 
-# 设置工作目录
 WORKDIR /app
 
-# 安装Python 3和pip（使用Alpine的轻量方案）
-RUN apk add --no-cache python3 py3-pip
-
-# 设置环境变量
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/app \
-    PATH=/app/venv/bin:$PATH
+    PYTHONPATH=/app
 
-# 创建虚拟环境
-RUN python3 -m venv /app/venv
+# 安装系统依赖（curl 用于 healthcheck）
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 
-# 复制Python依赖文件
-COPY requirements.txt pyproject.toml ./
-
-# 安装Python依赖到虚拟环境
-RUN /app/venv/bin/pip install --no-cache-dir -r requirements.txt
+# 安装 Python 依赖
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
 
 # 复制应用代码
 COPY app/ ./app/
 COPY app.py ./
 
-# 创建cmake-build-debug目录结构
+# 复制数据文件
+COPY data/ ./data/
+
+# 复制 C++ 算法目录（可执行文件 + 结果目录）
+COPY cmake-build-debug/stable_match.exe ./cmake-build-debug/
 RUN mkdir -p /app/cmake-build-debug/result
 
-# 复制C++可执行文件
-COPY cmake-build-debug/stable_match.exe ./cmake-build-debug/
+# 如果已有匹配结果，一并复制
+COPY cmake-build-debug/result/ ./cmake-build-debug/result/
 
-# 复制结果文件（如果存在）
-RUN cp -r cmake-build-debug/result/* ./cmake-build-debug/result/ 2>/dev/null || true
-
-# 创建非root用户
-RUN adduser -D -u 1000 appuser && \
-    chown -R appuser:appuser /app
-
-# 创建data目录和必要的子目录
-RUN mkdir -p /app/data && \
-    chown -R appuser:appuser /app/data
-
-# 切换到非root用户
-USER appuser
-
-# 暴露端口
 EXPOSE 8000
 
-# 启动命令
-CMD ["/app/venv/bin/python", "app.py"]
+CMD ["python", "app.py"]

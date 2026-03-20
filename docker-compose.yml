@@ -1,45 +1,40 @@
-version: '3.8'
-
 services:
   backend:
     build:
       context: .
       dockerfile: Dockerfile.backend
-    container_name: expe_backend
-    ports:
-      - "8000:8000"
+    container_name: tms_backend
+    expose:
+      - "8000"
     environment:
       - PORT=8000
       - DEBUG=false
       - DATA_DIR=/app/data
-    env_file:
-      - .env.production
-    volumes:
-      - ./data:/app/data
     restart: unless-stopped
     networks:
-      - expe_network
+      - tms_network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
+      start_period: 30s
 
   nginx:
     image: nginx:alpine
-    container_name: expe_nginx
+    container_name: tms_nginx
     ports:
       - "80:80"
     volumes:
       - ./frontend/nginx-docker.conf:/etc/nginx/nginx.conf:ro
       - ./frontend/build:/usr/share/nginx/html:ro
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     restart: unless-stopped
     networks:
-      - expe_network
+      - tms_network
 
 networks:
-  expe_network:
+  tms_network:
     driver: bridge

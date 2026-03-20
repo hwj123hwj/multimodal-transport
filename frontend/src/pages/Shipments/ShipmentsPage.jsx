@@ -21,12 +21,9 @@ const ShipmentsPage = () => {
         setLoading(true);
         try {
             const response = await shipmentsAPI.getAll();
-            let data = response.data;
-
-            // 确保data是数组
-            if (!Array.isArray(data)) {
-                data = data?.shipments || data?.data || [];
-            }
+            // 拦截器已解包 response.data，后端返回 {shipments:[]}
+            let data = response?.shipments || [];
+            if (!Array.isArray(data)) data = [];
 
             // 起点城市筛选
             if (originSearch.trim()) {
@@ -48,7 +45,7 @@ const ShipmentsPage = () => {
             const totalDemand = data.reduce((sum, shipment) => sum + (shipment.demand || 0), 0);
             const totalWeight = data.reduce((sum, shipment) => sum + (shipment.weight || 0), 0);
             const totalVolume = data.reduce((sum, shipment) => sum + (shipment.volume || 0), 0);
-            
+
             const stats = {
                 total: data.length,
                 totalDemand: totalDemand,
@@ -284,6 +281,7 @@ const ShipmentsPage = () => {
                     dataSource={shipments}
                     rowKey="id"
                     loading={loading}
+                    rowKey="shipment_id"
                     pagination={{
                         total: shipments.length,
                         pageSize: 10,

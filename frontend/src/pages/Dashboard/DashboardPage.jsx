@@ -67,22 +67,24 @@ export const DashboardPage = () => {
                 matchingAPI.getMatching()
             ]);
 
-            const routesData = routesRes.data?.routes || routesRes.data || [];
-            const shipmentsData = shipmentsRes.data?.shipments || shipmentsRes.data || [];
-            const matchingData = matchingRes.data?.matchings || matchingRes.data || [];
-            const matchRoutesShipmentsData = matchRoutesShipments.data || [];
+            // 拦截器已解包 response.data，直接访问后端JSON结构
+            const routesData = routesRes?.routes || [];
+            const shipmentsData = shipmentsRes?.shipments || [];
+            const matchingData = matchingRes?.data || [];
+            const matchRoutesShipmentsData = matchRoutesShipments?.data || [];
 
             setRoutes(routesData);
             setShipments(shipmentsData);
             setMatchingResults(matchingData);
             setMatchRoutesShipmentsData(matchRoutesShipmentsData);
 
-            // 计算统计数据
+            // 计算统计数据，空值保护
+            const firstMatching = Array.isArray(matchingData) ? matchingData[0] : null;
             const stats = {
                 totalRoutes: routesData.length,
                 totalShipments: shipmentsData.length,
-                totalMatches: matchingData[0].matched_shipments,
-                pendingShipments: shipmentsData.filter(s => s.status === 'pending').length
+                totalMatches: firstMatching?.matched_shipments ?? 0,
+                pendingShipments: 0
             };
             setStatistics(stats);
         } catch (error) {
@@ -139,8 +141,9 @@ export const DashboardPage = () => {
 
     // 获取匹配率
     const getMatchRate = () => {
-        if (shipments.length === 0) return 0;
-        return Math.round((matchingResults[0].matched_shipments / shipments.length) * 100);
+        const firstMatching = Array.isArray(matchingResults) ? matchingResults[0] : null;
+        if (!firstMatching || shipments.length === 0) return 0;
+        return Math.round((firstMatching.matched_shipments / shipments.length) * 100);
     };
 
     return (

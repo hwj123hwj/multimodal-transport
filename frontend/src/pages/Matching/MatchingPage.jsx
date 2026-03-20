@@ -29,33 +29,27 @@ const MatchingPage = () => {
         try {
             setLoading(true);
 
-            // 使用新的详细接口获取匹配结果
+            // 拦截器已解包 response.data，getDetailed 返回 {data:[]}
             const detailedResponse = await matchingAPI.getDetailed();
-            
-            let detailedMatchings = detailedResponse.data;
-            if (!Array.isArray(detailedMatchings)) {
-                detailedMatchings = detailedMatchings?.data || [];
-            }
+            const detailedMatchings = Array.isArray(detailedResponse?.data)
+                ? detailedResponse.data
+                : [];
 
-            // 直接使用详细数据，无需额外查询
             setMatchingResults(detailedMatchings);
             setMatchTable(detailedMatchings);
 
-
+            // getSummary 返回 {data:{...}}
             const summaryResponse = await matchingAPI.getSummary();
-            const summaryData = summaryResponse.data?.data || summaryResponse.data;
+            const summaryData = summaryResponse?.data || {};
 
-            // 根据摘要数据更新统计信息
             const stats = {
-                total_shipments: summaryData.total_shipments || detailedMatchings.length,
-                matchedRoutes: Math.round(summaryData.avg_matching_rate * summaryData.total_shipments) || 0,
-                unmatched_shipments:summaryData.unmatched_shipments || 0,
-                matchedShipments: summaryData.matched_shipments || 0,
+                total_shipments: summaryData.total_shipments ?? detailedMatchings.length,
+                unmatched_shipments: summaryData.unmatched_shipments ?? 0,
+                matchedShipments: summaryData.matched_shipments ?? 0,
                 avgMatchScore: summaryData.avg_matching_rate ? (summaryData.avg_matching_rate * 100) : 0
             };
             setStatistics(stats);
 
-            // 处理分类利用率数据用于图表展示
             if (summaryData.category_utilization_rates) {
                 const utilizationData = Object.entries(summaryData.category_utilization_rates).map(([category, rate]) => ({
                     name: category,
@@ -70,12 +64,7 @@ const MatchingPage = () => {
             message.error('获取匹配结果失败');
             setMatchingResults([]);
             setMatchTable([]);
-            setStatistics({
-                totalMatches: 0,
-                matchedRoutes: 0,
-                matchedShipments: 0,
-                avgMatchScore: 0
-            });
+            setStatistics({ total_shipments: 0, unmatched_shipments: 0, matchedShipments: 0, avgMatchScore: 0 });
             setCategoryUtilization([]);
         } finally {
             setLoading(false);
@@ -85,21 +74,6 @@ const MatchingPage = () => {
     // 处理匹配结果选择
     const handleResultSelect = (result) => {
         setSelectedResult(result);
-    };
-
-    // 处理匹配结果筛选
-    const handleResultFilter = async (filters) => {
-        try {
-            setLoading(true);
-            const response = await matchingAPI.filter(filters);
-            setMatchingResults(response.data);
-            message.success(`筛选出 ${response.data.length} 条匹配结果`);
-        } catch (error) {
-            console.error('筛选匹配结果失败:', error);
-            message.error('筛选匹配结果失败');
-        } finally {
-            setLoading(false);
-        }
     };
 
     // 处理数据导出
@@ -223,16 +197,11 @@ const MatchingPage = () => {
         {
             title: '路线容量',
             key: 'capacity',
-            width: 100,
+            width: 80,
             render: (_, record) => {
                 const routeInfo = record.route_info;
                 if (!routeInfo) return '-';
-                return (
-                    <div style={{fontSize: '12px'}}>
-                        <div>总容量: {routeInfo.capacity}</div>
-                        <div>可用: {routeInfo.available_capacity}</div>
-                    </div>
-                );
+                return <span>{routeInfo.capacity ?? '-'} TEU</span>;
             }
         },
         {
@@ -408,13 +377,13 @@ const MatchingPage = () => {
                                         if (!routeInfo) {
                                             return <Tag color="red">未匹配</Tag>;
                                         }
-                                        
+
                                         const nodes = routeInfo.nodes || [];
                                         const costs = routeInfo.costs || [];
                                         const travelTimes = routeInfo.travel_times || [];
                                         const totalCost = routeInfo.total_cost || 0;
                                         const totalTravelTime = routeInfo.total_travel_time || 0;
-                                        
+
                                         return (
                                             <div>
                                                 {/* 起点终点和总距离 */}
@@ -444,17 +413,17 @@ const MatchingPage = () => {
                                                         </div>
                                                     </Col>
                                                 </Row>
-                                                
+
                                                 {/* 路线段详情 */}
                                                 <div style={{marginTop: 16}}>
                                                     <div style={{fontWeight: 'bold', marginBottom: 8, color: '#666'}}>路线分段信息:</div>
                                                     {nodes.map((node, index) => {
                                                         if (index >= nodes.length - 1) return null;
-                                                        
+
                                                         const nextNode = nodes[index + 1];
                                                         const segmentCost = costs[index] || 0;
                                                         const segmentTime = travelTimes[index] || 0;
-                                                        
+
                                                         return (
                                                             <Card key={index} size="small" style={{marginBottom: 8, borderLeft: '3px solid #1890ff'}}>
                                                                 <Row gutter={16} align="middle">
@@ -492,7 +461,7 @@ const MatchingPage = () => {
                                                         );
                                                     })}
                                                 </div>
-                                                
+
                                                 {/* 总计信息 */}
                                                 <div style={{marginTop: 16, padding: '12px', backgroundColor: '#e6f7ff', borderRadius: '6px'}}>
                                                     <Row gutter={16}>
@@ -534,7 +503,7 @@ const MatchingPage = () => {
                                         );
                                     })()}
                                 </Card>
-                                
+
                                 {/* 货物信息 */}
                                 <Card size="small" style={{marginTop: 16, backgroundColor: '#fff7e6'}}>
                                     <div style={{fontWeight: 'bold', marginBottom: 12, fontSize: '16px'}}>货物信息</div>
@@ -545,7 +514,7 @@ const MatchingPage = () => {
                                         const weight = shipmentInfo?.weight || 0;
                                         const volume = shipmentInfo?.volume || 0;
                                         const priority = shipmentInfo?.priority || 1;
-                                        
+
                                         return (
                                             <div>
                                                 <Row gutter={16} style={{marginBottom: 16}}>
@@ -566,7 +535,7 @@ const MatchingPage = () => {
                                                         </div>
                                                     </Col>
                                                 </Row>
-                                                
+
                                                 <Row gutter={16}>
                                                     <Col span={8}>
                                                         <div style={{textAlign: 'center', padding: '8px', backgroundColor: '#f0f5ff', borderRadius: '4px'}}>
@@ -629,7 +598,6 @@ const MatchingPage = () => {
                     data={matchTable}
                     columns={columns}
                     loading={loading}
-                    onFilter={handleResultFilter}
                     filterable={false}
                     exportable
                     searchable={false}

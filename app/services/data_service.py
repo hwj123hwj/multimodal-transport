@@ -15,7 +15,7 @@ class DataService:
 
     def __init__(self, data_loader: DataLoader):
         """初始化数据服务
-        
+
         Args:
             data_loader: 数据加载器实例
         """
@@ -37,7 +37,7 @@ class DataService:
 
     def get_all_network_nodes(self) -> Dict[str, Any]:
         """获取所有网络节点数据（包含经纬度）
-        
+
         Returns:
             Dict[str, Any]: 网络节点数据
         """
@@ -58,7 +58,7 @@ class DataService:
 
     def get_all_shipments(self) -> Dict[str, Any]:
         """获取所有货物数据
-        
+
         Returns:
             Dict[str, Any]: 货物数据
         """
@@ -68,9 +68,6 @@ class DataService:
                 self._cached_data['shipments'] = shipments
 
             shipments = self._cached_data['shipments']
-
-            # 获取统计信息
-            stats = shipments.get_statistics()
 
             # 获取所有货物详情（包含经纬度信息）
             all_shipments = []
@@ -95,15 +92,6 @@ class DataService:
                 })
 
             return {
-                "total_count": stats["total_shipments"],
-                "statistics": {
-                    "total_demand": stats.get("total_demand", 0),
-                    "total_weight": stats.get("total_weight", 0),
-                    "total_volume": stats.get("total_volume", 0),
-                    "average_time_value": stats.get("average_time_value", 0),
-                    "origin_distribution": stats.get("origin_distribution", {}),
-                    "destination_distribution": stats.get("destination_distribution", {})
-                },
                 "shipments": all_shipments
             }
         except Exception as e:
@@ -154,22 +142,10 @@ class DataService:
                     "total_cost": route.total_cost,
                     "total_distance": total_distance,
                     "capacity": route.capacity,
-                    "current_load": route.current_load,
-                    "available_capacity": route.available_capacity,
-                    "is_full": route.is_full,
-                    "route_category": route.route_category  # 添加路线分类信息
+                    "route_category": route.route_category
                 })
 
-            # 修改 get_all_routes 方法的返回部分
             return {
-                "total_count": stats["total_routes"],
-
-                "total_capacity": stats["total_capacity"],
-
-                "route_stats": {
-                    "average_travel_time": stats.get("average_travel_time", 0.0),
-                    "average_cost": stats.get("average_total_cost", 0.0)
-                },
                 "routes": all_routes
             }
         except Exception as e:
@@ -178,7 +154,7 @@ class DataService:
 
     def get_matching_results(self) -> Dict[str, Any]:
         """获取匹配结果数据（包含经纬度信息）
-        
+
         Returns:
             Dict[str, Any]: 匹配结果数据
         """
@@ -245,10 +221,10 @@ class DataService:
 
     def _calculate_route_distance(self, node_details: List[Dict[str, Any]]) -> float:
         """计算路线的地理距离（基于经纬度，使用Haversine公式）
-        
+
         Args:
             node_details: 包含经纬度的节点详情列表
-            
+
         Returns:
             float: 总距离（公里）
         """
@@ -289,10 +265,10 @@ class DataService:
 
     def search_shipments_by_destination(self, destination: str) -> List[Dict[str, Any]]:
         """按目的地搜索货物
-        
+
         Args:
             destination: 目的地节点
-            
+
         Returns:
             List[Dict[str, Any]]: 匹配的货物列表
         """
@@ -328,11 +304,11 @@ class DataService:
     def filter_routes_by_nodes(self, origin: Optional[str] = None,
                                destination: Optional[str] = None) -> List[Dict[str, Any]]:
         """按起点和终点筛选路线
-        
+
         Args:
             origin: 起点节点（可选）
             destination: 终点节点（可选）
-            
+
         Returns:
             List[Dict[str, Any]]: 匹配的路线列表
         """
@@ -358,10 +334,10 @@ class DataService:
 
     def get_route_by_id(self, route_id: int) -> Optional[Dict[str, Any]]:
         """根据路线ID获取单条路线详情
-        
+
         Args:
             route_id: 路线ID
-            
+
         Returns:
             Optional[Dict[str, Any]]: 路线详情数据，如果不存在返回None
         """

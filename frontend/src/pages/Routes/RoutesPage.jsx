@@ -29,16 +29,11 @@ const RoutesPage = () => {
         try {
             setLoading(true);
             const response = await routesAPI.getAll();
-            let data = response.data;
-
-            // 确保data是数组
-            if (!Array.isArray(data)) {
-                data = data?.routes || data?.data || [];
-            }
+            // 拦截器已解包 response.data，后端返回 {routes:[]}
+            const data = response?.routes || [];
 
             setRoutes(data);
 
-            // 直接使用后端提供的统计信息，无需前端计算
             const stats = {
                 totalRoutes: data.length,
                 totalCapacity: data.reduce((sum, route) => sum + (route.capacity || 0), 0),
@@ -78,10 +73,10 @@ const RoutesPage = () => {
                 const params = {};
                 if (originSearch) params.origin = originSearch;
                 if (destinationSearch) params.destination = destinationSearch;
-                
+
                 const response = await routesAPI.filter(params);
-                // 修复：正确访问返回的数据结构
-                const routesData = response?.routes || response || [];
+                // 拦截器已解包 response.data，后端 filter 返回 {routes:[]}
+                const routesData = response?.routes || [];
                 setRoutes(routesData);
                 message.success(`筛选出 ${routesData.length} 条路线`);
             } else {
@@ -239,13 +234,13 @@ const RoutesPage = () => {
     // 自定义搜索栏
     const customSearchBar = (
         <Space>
-            <Input 
+            <Input
                 placeholder="起点"
                 value={originSearch}
                 onChange={(e) => setOriginSearch(e.target.value)}
                 style={{width: 120}}
             />
-            <Input 
+            <Input
                 placeholder="终点"
                 value={destinationSearch}
                 onChange={(e) => setDestinationSearch(e.target.value)}

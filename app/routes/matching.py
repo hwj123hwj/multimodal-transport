@@ -9,10 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from fastapi import APIRouter
 from fastapi import HTTPException, BackgroundTasks
 
-from ..config import get_data_dir
-from ..services.data_loader import DataLoader
-from ..services.data_service import DataService
-from ..services.matching_service import MatchingService
+from ..services import data_loader, data_service, matching_service
 
 # 创建线程池（根据服务器CPU核心数调整）
 thread_pool = ThreadPoolExecutor(max_workers=4)
@@ -21,11 +18,6 @@ logger = logging.getLogger(__name__)
 
 # 创建路由实例
 router = APIRouter(prefix="/api", tags=["matching"])
-
-# 初始化服务和数据加载器 - 使用配置中的数据目录
-data_loader = DataLoader(get_data_dir())
-data_service = DataService(data_loader)
-matching_service = MatchingService(data_loader)
 
 
 @router.get("/shipment-route-mapping")

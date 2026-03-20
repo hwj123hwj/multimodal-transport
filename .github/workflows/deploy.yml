@@ -1,0 +1,84 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── 1. 构建前端静态文件 ───────────────────────────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      # ── 2. 打包（排除不需要的目录） ────────────────────────────────
+      - name: Package
+        run: |
+          tar --exclude='.git' \
+              --exclude='frontend/node_modules' \
+              --exclude='frontend/src' \
+              --exclude='frontend/public' \
+              -czf deploy.tar.gz .
+
+      # ── 3. 上传到服务器并解压 ─────────────────────────────────────
+      - name: Upload to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "deploy.tar.gz"
+          target: "/opt/tms_upload"
+
+      # ── 4. 服务器上解压并重启容器 ─────────────────────────────────
+      - name: Deploy on server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+
+            # 解压到部署目录
+            mkdir -p /opt/tms
+            tar -xzf /opt/tms_upload/deploy.tar.gz -C /opt/tms
+            rm /opt/tms_upload/deploy.tar.gz
+
+            cd /opt/tms
+
+            # 重建并启动容器
+            docker compose down --remove-orphans
+            docker compose build --no-cache backend
+            docker compose up -d
+
+            # 等待健康检查通过（最多60秒）
+            echo "等待服务启动..."
+            for i in $(seq 1 12); do
+              sleep 5
+              if docker inspect tms_backend --format='{{.State.Health.Status}}' 2>/dev/null | grep -q "healthy"; then
+                echo "服务已就绪"
+                docker compose ps
+                exit 0
+              fi
+              echo "等待中... ($i/12)"
+            done
+
+            # 超时但不报错，输出当前状态
+            docker compose ps

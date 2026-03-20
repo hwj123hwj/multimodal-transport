@@ -9,15 +9,10 @@ from typing import Dict, Any
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 
 from ..config import get_data_dir
-from ..services.data_loader import DataLoader
-from ..services.data_service import DataService
+from ..services import data_loader, data_service
 
 # 创建路由实例
 router = APIRouter(prefix="/api", tags=["data"])
-
-# 初始化服务和数据加载器 - 使用配置中的数据目录
-data_loader = DataLoader(get_data_dir())
-data_service = DataService(data_loader)
 
 
 @router.get("/network")
@@ -66,12 +61,12 @@ async def upload_data_file(
         description: str = Form("", description="文件描述")
 ) -> Dict[str, Any]:
     """上传数据文件
-    
+
     Args:
         file: 上传的文件
         file_type: 文件类型 (shipment, route)
         description: 文件描述
-        
+
     Returns:
         Dict[str, Any]: 上传结果信息
     """

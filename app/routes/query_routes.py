@@ -6,16 +6,10 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
 
-from ..config import get_data_dir
-from ..services.data_loader import DataLoader
-from ..services.data_service import DataService
+from ..services import data_service
 
 # 创建路由实例
 router = APIRouter(prefix="/api", tags=["query"])
-
-# 初始化服务和数据加载器 - 使用配置中的数据目录
-data_loader = DataLoader(get_data_dir())
-data_service = DataService(data_loader)
 
 
 @router.get("/search/shipments")
@@ -23,7 +17,7 @@ async def search_shipments_by_destination(
         destination: str = Query(..., description="目的地节点", example="6")
 ):
     """按目的地搜索货物
-    
+
     Args:
         destination: 目的地节点编号
     """
@@ -46,7 +40,7 @@ async def filter_routes_by_nodes(
         destination: Optional[str] = Query(None, description="终点节点", example="9")
 ):
     """按起点和终点筛选路线
-    
+
     Args:
         origin: 起点节点编号（可选）
         destination: 终点节点编号（可选）
@@ -82,7 +76,7 @@ async def filter_routes_by_capacity(
         max_utilization_rate: Optional[float] = Query(None, description="最大利用率", example=0.8)
 ):
     """按容量条件筛选路线
-    
+
     Args:
         min_available_capacity: 最小可用容量（可选）
         max_utilization_rate: 最大利用率（可选）
@@ -118,19 +112,19 @@ async def filter_routes_by_capacity(
 @router.get("/routes/{route_id}")
 async def get_route_by_id(route_id: int):
     """根据路线ID获取单条路线详情
-    
+
     Args:
         route_id: 路线ID
     """
     try:
         route = data_service.get_route_by_id(route_id)
-        
+
         if not route:
             raise HTTPException(
                 status_code=404,
                 detail=f"路线ID {route_id} 不存在"
             )
-        
+
         return {
             "status": "success",
             "route": route
