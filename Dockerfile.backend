@@ -17,16 +17,20 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app/ ./app/
 COPY app.py ./
 
-# 复制数据文件
-COPY data/ ./data/
+# 把初始数据放到 data_init 目录（启动时按需复制到 volume，不覆盖用户文件）
+COPY data/ ./data_init/
 
-# 复制 C++ 算法目录（可执行文件 + 结果目录）
+# 复制 C++ 算法可执行文件
 COPY cmake-build-debug/stable_match.exe ./cmake-build-debug/
 RUN mkdir -p /app/cmake-build-debug/result
 
 # 如果已有匹配结果，一并复制
 COPY cmake-build-debug/result/ ./cmake-build-debug/result/
 
+# 启动脚本
+COPY docker-entrypoint.sh ./
+RUN chmod +x docker-entrypoint.sh
+
 EXPOSE 8000
 
-CMD ["python", "app.py"]
+ENTRYPOINT ["./docker-entrypoint.sh"]

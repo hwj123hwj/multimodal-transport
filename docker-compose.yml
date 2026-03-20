@@ -10,6 +10,11 @@ services:
       - PORT=8000
       - DEBUG=false
       - DATA_DIR=/app/data
+    volumes:
+      # data目录用volume挂载，持久化用户上传的文件
+      - tms_data:/app/data
+      # result目录挂载，算法输出结果持久化
+      - tms_result:/app/cmake-build-debug/result
     restart: unless-stopped
     networks:
       - tms_network
@@ -38,3 +43,7 @@ services:
 networks:
   tms_network:
     driver: bridge
+
+volumes:
+  tms_data:
+  tms_result:
