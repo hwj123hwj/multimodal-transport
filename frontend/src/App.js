@@ -8,6 +8,7 @@ import ShipmentsPage from './pages/Shipments/ShipmentsPage';
 import MatchingPage from './pages/Matching/MatchingPage';
 import DataUploadPage from './pages/DataUpload/DataUploadPage';
 import AnalyticsPage from './pages/Analytics/AnalyticsPage';
+import ComparePage from './pages/Compare/ComparePage';
 import './App.css';
 
 // ── Icons (inline SVG, no emoji) ────────────────────────────
@@ -47,6 +48,11 @@ const IconAnalytics = () => (
         <line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/>
     </svg>
 );
+const IconCompare = () => (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4m0 0h18"/>
+    </svg>
+);
 const IconChevronLeft = () => (
     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <polyline points="15 18 9 12 15 6"/>
@@ -66,6 +72,7 @@ const NAV_ITEMS = [
     {key: 'matching',  label: '匹配结果', icon: <IconMatching/>},
     {key: 'data-upload', label: '数据上传', icon: <IconUpload/>},
     {key: 'analytics',   label: '数据分析', icon: <IconAnalytics/>},
+    {key: 'compare',      label: '对比分析', icon: <IconCompare/>},
 ];
 
 const PAGE_TITLES = {
@@ -75,6 +82,7 @@ const PAGE_TITLES = {
     matching:     '匹配结果',
     'data-upload': '数据上传与算法执行',
     'analytics':   '数据分析',
+    'compare':     '对比分析',
 };
 
 // ── Sidebar ──────────────────────────────────────────────────
@@ -154,6 +162,7 @@ const AppShell = () => {
                         <Route path="/matching"    element={<MatchingPage/>}/>
                         <Route path="/data-upload" element={<DataUploadPage/>}/>
                         <Route path="/analytics"   element={<AnalyticsPage/>}/>
+                        <Route path="/compare"     element={<ComparePage/>}/>
                     </Routes>
                 </main>
             </div>

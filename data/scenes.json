@@ -1,0 +1,112 @@
+[
+  {
+    "id": "运价plus时间",
+    "label": "运价+时间",
+    "group": "运价+时间",
+    "sub": null,
+    "route_count": 17,
+    "shipment_count": 80,
+    "result_file": null,
+    "status": "ready"
+  },
+  {
+    "id": "时间价值",
+    "label": "时间价值",
+    "group": "时间价值",
+    "sub": null,
+    "route_count": 17,
+    "shipment_count": 80,
+    "result_file": null,
+    "status": "ready"
+  },
+  {
+    "id": "政府补贴",
+    "label": "政府补贴",
+    "group": "政府补贴",
+    "sub": null,
+    "route_count": 17,
+    "shipment_count": 80,
+    "result_file": null,
+    "status": "ready"
+  },
+  {
+    "id": "政府补贴_补贴20pct",
+    "label": "政府补贴/补贴20%",
+    "group": "政府补贴",
+    "sub": "补贴20%",
+    "route_count": 17,
+    "shipment_count": 80,
+    "result_file": null,
+    "status": "ready"
+  },
+  {
+    "id": "政府补贴_补贴30pct",
+    "label": "政府补贴/补贴30%",
+    "group": "政府补贴",
+    "sub": "补贴30%",
+    "route_count": 17,
+    "shipment_count": 80,
+    "result_file": null,
+    "status": "ready"
+  },
+  {
+    "id": "政府补贴_补贴40pct",
+    "label": "政府补贴/补贴40%",
+    "group": "政府补贴",
+    "sub": "补贴40%",
+    "route_count": 17,
+    "shipment_count": 80,
+    "result_file": null,
+    "status": "ready"
+  },
+  {
+    "id": "政府补贴_补贴50pct",
+    "label": "政府补贴/补贴50%",
+    "group": "政府补贴",
+    "sub": "补贴50%",
+    "route_count": 17,
+    "shipment_count": 80,
+    "result_file": null,
+    "status": "ready"
+  },
+  {
+    "id": "政府补贴_补贴60pct",
+    "label": "政府补贴/补贴60%",
+    "group": "政府补贴",
+    "sub": "补贴60%",
+    "route_count": 17,
+    "shipment_count": 80,
+    "result_file": null,
+    "status": "ready"
+  },
+  {
+    "id": "政府补贴_补贴70pct",
+    "label": "政府补贴/补贴70%",
+    "group": "政府补贴",
+    "sub": "补贴70%",
+    "route_count": 17,
+    "shipment_count": 80,
+    "result_file": null,
+    "status": "ready"
+  },
+  {
+    "id": "政府补贴_补贴80pct",
+    "label": "政府补贴/补贴80%",
+    "group": "政府补贴",
+    "sub": "补贴80%",
+    "route_count": 17,
+    "shipment_count": 80,
+    "result_file": null,
+    "status": "ready"
+  },
+  {
+    "id": "政府补贴_补贴90pct",
+    "label": "政府补贴/补贴90%",
+    "group": "政府补贴",
+    "sub": "补贴90%",
+    "route_count": 17,
+    "shipment_count": 80,
+    "result_file": null,
+    "status": "ready"
+  }
+]
