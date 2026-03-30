@@ -1,295 +1,307 @@
 import React, {useEffect, useState} from 'react';
-import {Button, Card, Col, Input, message, Row, Space, Statistic, Table} from 'antd';
-import {ExportOutlined, ReloadOutlined, SearchOutlined} from '@ant-design/icons';
+import {
+    Button, Card, Col, Descriptions, Drawer,
+    Input, message, Row, Space, Table, Tag
+} from 'antd';
+import {
+    ExportOutlined, EyeOutlined,
+    InboxOutlined, ReloadOutlined, SearchOutlined,
+    EnvironmentOutlined, ColumnWidthOutlined,
+} from '@ant-design/icons';
 import {shipmentsAPI} from '../../services/api';
-import './ShipmentsPage.css';
 
 const ShipmentsPage = () => {
-    const [shipments, setShipments] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [originSearch, setOriginSearch] = useState(''); // eslint-disable-next-line
-    const [destinationSearch, setDestinationSearch] = useState(''); // eslint-disable-next-line
-    const [stats, setStats] = useState({
-        total: 0,
-        totalDemand: 0,
-        totalWeight: 0,
-        totalVolume: 0
-    });
+    const [shipments, setShipments]           = useState([]);
+    const [loading, setLoading]               = useState(false);
+    const [originSearch, setOriginSearch]     = useState('');
+    const [destSearch, setDestSearch]         = useState('');
+    const [drawerOpen, setDrawerOpen]         = useState(false);
+    const [selectedShipment, setSelectedShipment] = useState(null);
+    const [stats, setStats] = useState({total: 0, totalDemand: 0, totalWeight: 0, totalVolume: 0});
 
-    // 获取货物数据
     const fetchShipments = async () => {
         setLoading(true);
         try {
             const response = await shipmentsAPI.getAll();
-            // 拦截器返回完整body {status, data}，后端返回 {status, data:{shipments:[]}}
             let data = response?.data?.shipments || [];
             if (!Array.isArray(data)) data = [];
 
-            // 起点城市筛选
-            if (originSearch.trim()) {
-                data = data.filter(shipment =>
-                    shipment.origin_city && shipment.origin_city.toLowerCase().includes(originSearch.toLowerCase().trim())
-                );
-            }
-
-            // 终点城市筛选
-            if (destinationSearch.trim()) {
-                data = data.filter(shipment =>
-                    shipment.destination_city && shipment.destination_city.toLowerCase().includes(destinationSearch.toLowerCase().trim())
-                );
-            }
+            if (originSearch.trim())
+                data = data.filter(s => s.origin_city?.toLowerCase().includes(originSearch.toLowerCase().trim()));
+            if (destSearch.trim())
+                data = data.filter(s => s.destination_city?.toLowerCase().includes(destSearch.toLowerCase().trim()));
 
             setShipments(data);
-
-            // 计算统计数据
-            const totalDemand = data.reduce((sum, shipment) => sum + (shipment.demand || 0), 0);
-            const totalWeight = data.reduce((sum, shipment) => sum + (shipment.weight || 0), 0);
-            const totalVolume = data.reduce((sum, shipment) => sum + (shipment.volume || 0), 0);
-
-            const stats = {
-                total: data.length,
-                totalDemand: totalDemand,
-                totalWeight: totalWeight,
-                totalVolume: totalVolume
-            };
-            setStats(stats);
-        } catch (error) {
-            console.error('获取货物数据失败:', error);
+            setStats({
+                total:       data.length,
+                totalDemand: data.reduce((s, r) => s + (r.demand  || 0), 0),
+                totalWeight: data.reduce((s, r) => s + (r.weight  || 0), 0),
+                totalVolume: data.reduce((s, r) => s + (r.volume  || 0), 0),
+            });
+        } catch (e) {
+            console.error('获取货物数据失败:', e);
         } finally {
             setLoading(false);
         }
     };
 
-    // 起点搜索处理
-    const handleOriginSearch = () => { // eslint-disable-next-line
-        fetchShipments();
-    };
-
-    // 终点搜索处理
-    const handleDestinationSearch = () => { // eslint-disable-next-line
-        fetchShipments();
-    };
-
-
-    // 导出数据
     const handleExport = () => {
         try {
-            const csvContent = [
-                ['货物ID', '重量(kg)', '体积(m³)', '需求量', '起点', '终点', '时间价值(CNY/TEU)'],
-                ...shipments.map(shipment => [
-                    shipment.shipment_id,
-                    shipment.weight,
-                    shipment.volume,
-                    shipment.status,
-                    shipment.origin_city,
-                    shipment.destination_city,
-                    shipment.time_value,
+            const csv = [
+                ['货物ID', '重量(kg)', '体积(m³)', '需求量(TEU)', '起点', '终点', '时间价值(CNY/TEU)'],
+                ...shipments.map(s => [
+                    s.shipment_id, s.weight, s.volume, s.demand,
+                    s.origin_city, s.destination_city, s.time_value,
                 ])
-            ].map(row => row.join(',')).join('\n');
+            ].map(r => r.join(',')).join('\n');
 
-            const blob = new Blob(['\uFEFF' + csvContent], {type: 'text/csv;charset=utf-8;'});
-            const link = document.createElement('a');
-            const url = URL.createObjectURL(blob);
-            link.setAttribute('href', url);
-            link.setAttribute('download', `货物数据_${new Date().toISOString().split('T')[0]}.csv`);
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-
+            const blob = new Blob(['\uFEFF' + csv], {type: 'text/csv;charset=utf-8;'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `货物数据_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
             message.success('数据导出成功');
-        } catch (error) {
+        } catch {
             message.error('数据导出失败');
-            console.error('数据导出失败:', error);
         }
     };
 
-    // 初始化加载数据
-    useEffect(() => {
-        fetchShipments();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [originSearch, destinationSearch]);
+    useEffect(() => { fetchShipments(); }, [originSearch, destSearch]); // eslint-disable-line
 
-    // 表格列定义
+    // ── 统计卡配置 ──────────────────────────────────────────────
+    const statCards = [
+        {
+            label: '总货物数',
+            value: stats.total,
+            unit:  '票',
+            color: '#2563EB',
+            bg:    '#EFF6FF',
+            icon:  <InboxOutlined/>,
+        },
+        {
+            label: '总需求量',
+            value: stats.totalDemand,
+            unit:  'TEU',
+            color: '#D97706',
+            bg:    '#FFFBEB',
+            icon:  <ColumnWidthOutlined/>,
+        },
+        {
+            label: '总重量',
+            value: stats.totalWeight.toFixed(0),
+            unit:  'kg',
+            color: '#059669',
+            bg:    '#ECFDF5',
+            icon:  <InboxOutlined/>,
+        },
+        {
+            label: '总体积',
+            value: stats.totalVolume.toFixed(0),
+            unit:  'm³',
+            color: '#7C3AED',
+            bg:    '#F5F3FF',
+            icon:  <EnvironmentOutlined/>,
+        },
+    ];
+
+    // ── 表格列 ──────────────────────────────────────────────────
     const columns = [
         {
             title: '货物ID',
             dataIndex: 'shipment_id',
             key: 'shipment_id',
-            width: 150,
-            render: (text) => <span style={{fontWeight: 500}}>{text}</span>
+            width: 130,
+            render: t => <span style={{fontFamily: 'var(--font-mono)', fontWeight: 600}}>{t}</span>,
+        },
+        {
+            title: '起点',
+            dataIndex: 'origin_city',
+            key: 'origin_city',
+            width: 100,
+            render: t => <Tag color="blue">{t}</Tag>,
+        },
+        {
+            title: '终点',
+            dataIndex: 'destination_city',
+            key: 'destination_city',
+            width: 100,
+            render: t => <Tag color="cyan">{t}</Tag>,
+        },
+        {
+            title: '需求量(TEU)',
+            dataIndex: 'demand',
+            key: 'demand',
+            width: 110,
+            align: 'right',
+            render: v => <span style={{fontFamily: 'var(--font-mono)'}}>{v}</span>,
         },
         {
             title: '重量(kg)',
             dataIndex: 'weight',
             key: 'weight',
             width: 100,
-            render: (weight) => `${weight} kg`
+            align: 'right',
+            render: v => <span style={{fontFamily: 'var(--font-mono)'}}>{v}</span>,
         },
         {
             title: '体积(m³)',
             dataIndex: 'volume',
             key: 'volume',
             width: 100,
-            render: (volume) => `${volume} m³`
-        },
-        {
-            title: '需求量(TEU)',
-            dataIndex: 'demand',
-            key: 'demand',
-            width: 100,
-        },
-        {
-            title: '起点城市',
-            dataIndex: 'origin_city',
-            key: 'origin_city',
-            width: 120
-        },
-        {
-            title: '终点城市',
-            dataIndex: 'destination_city',
-            key: 'destination_city',
-            width: 120
+            align: 'right',
+            render: v => <span style={{fontFamily: 'var(--font-mono)'}}>{v}</span>,
         },
         {
             title: '时间价值(CNY/TEU)',
             dataIndex: 'time_value',
             key: 'time_value',
-            width: 150,
+            width: 160,
+            align: 'right',
+            render: v => <span style={{fontFamily: 'var(--font-mono)'}}>{v}</span>,
         },
         {
             title: '操作',
             key: 'actions',
-            width: 120,
+            width: 80,
+            align: 'center',
             render: (_, record) => (
-                <div className="action-buttons">
-                    <Button size="small" type="primary" ghost>
-                        详情
-                    </Button>
-                </div>
-            )
-        }
+                <Button
+                    size="small"
+                    icon={<EyeOutlined/>}
+                    onClick={() => { setSelectedShipment(record); setDrawerOpen(true); }}
+                    style={{
+                        color: '#64748B',
+                        borderColor: '#E2E8F0',
+                        background: '#F8FAFC',
+                    }}
+                >
+                    详情
+                </Button>
+            ),
+        },
     ];
 
     return (
-        <div className="shipments-page">
+        <div>
             {/* 搜索栏 */}
-            <Card className="search-section">
-                <Row gutter={16} align="middle">
+            <Card style={{marginBottom: 12}}>
+                <Row gutter={12} align="middle" wrap={false}>
                     <Col>
                         <Input
-                            placeholder="搜索起点城市..."
+                            placeholder="搜索起点城市"
                             value={originSearch}
-                            onChange={(e) => setOriginSearch(e.target.value)}
-                            onPressEnter={handleOriginSearch}
-                            style={{width: 200}}
+                            onChange={e => setOriginSearch(e.target.value)}
+                            onPressEnter={fetchShipments}
+                            prefix={<SearchOutlined style={{color: '#94A3B8'}}/>}
+                            style={{width: 180}}
                             allowClear
                         />
                     </Col>
                     <Col>
                         <Input
-                            placeholder="搜索终点城市..."
-                            value={destinationSearch}
-                            onChange={(e) => setDestinationSearch(e.target.value)}
-                            onPressEnter={handleDestinationSearch}
-                            style={{width: 200}}
+                            placeholder="搜索终点城市"
+                            value={destSearch}
+                            onChange={e => setDestSearch(e.target.value)}
+                            onPressEnter={fetchShipments}
+                            prefix={<SearchOutlined style={{color: '#94A3B8'}}/>}
+                            style={{width: 180}}
                             allowClear
                         />
                     </Col>
                     <Col>
-                        <Button
-                            type="primary"
-                            onClick={fetchShipments}
-                            loading={loading}
-                            icon={<SearchOutlined/>}
-                        >
+                        <Button type="primary" onClick={fetchShipments} loading={loading} icon={<SearchOutlined/>}>
                             搜索
                         </Button>
                     </Col>
-                    <Col flex="auto"></Col>
+                    <Col flex="auto"/>
                     <Col>
                         <Space>
-                            <Button
-                                icon={<ReloadOutlined/>}
-                                onClick={fetchShipments}
-                                loading={loading}
-                                className="refresh-button"
-                            >
-                                刷新
-                            </Button>
-                            <Button
-                                icon={<ExportOutlined/>}
-                                onClick={handleExport}
-                                className="export-button"
-                            >
-                                导出
-                            </Button>
+                            <Button icon={<ReloadOutlined/>} onClick={fetchShipments} loading={loading}>刷新</Button>
+                            <Button icon={<ExportOutlined/>} onClick={handleExport}>导出</Button>
                         </Space>
                     </Col>
                 </Row>
             </Card>
 
-            {/* 统计信息 */}
-            <Row gutter={16}>
-                <Col span={6}>
-                    <Card>
-                        <Statistic
-                            title="总货物数"
-                            value={stats.total}
-                            prefix="#"
-                            valueStyle={{color: '#1890ff'}}
-                        />
-                    </Card>
-                </Col>
-                <Col span={6}>
-                    <Card>
-                        <Statistic
-                            title="总需求量(TEU)"
-                            value={stats.totalDemand}
-                            prefix="#"
-                            valueStyle={{color: '#fa8c16'}}
-                        />
-                    </Card>
-                </Col>
-                <Col span={6}>
-                    <Card>
-                        <Statistic
-                            title="总重量(kg)"
-                            value={stats.totalWeight.toFixed(0)}
-                            prefix="#"
-                            valueStyle={{color: '#1890ff'}}
-                        />
-                    </Card>
-                </Col>
-                <Col span={6}>
-                    <Card>
-                        <Statistic
-                            title="总体积(m³)"
-                            value={stats.totalVolume.toFixed(0)}
-                            prefix="#"
-                            valueStyle={{color: '#52c41a'}}
-                        />
-                    </Card>
-                </Col>
+            {/* 统计卡 — 横向紧凑布局 */}
+            <Row gutter={12} style={{marginBottom: 12}}>
+                {statCards.map(card => (
+                    <Col key={card.label} xs={12} sm={12} lg={6}>
+                        <Card style={{background: card.bg, border: `1px solid ${card.color}20`}}>
+                            <div style={{display: 'flex', alignItems: 'center', gap: 12}}>
+                                <div style={{
+                                    width: 40, height: 40, borderRadius: '50%',
+                                    background: `${card.color}15`,
+                                    border: `1.5px solid ${card.color}30`,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    fontSize: 18, color: card.color, flexShrink: 0,
+                                }}>
+                                    {card.icon}
+                                </div>
+                                <div>
+                                    <div style={{fontSize: 12, color: '#64748B', marginBottom: 2}}>{card.label}</div>
+                                    <div style={{
+                                        fontSize: 22, fontWeight: 800,
+                                        fontFamily: 'var(--font-mono)',
+                                        color: card.color, lineHeight: 1,
+                                    }}>
+                                        {card.value}
+                                        <span style={{fontSize: 12, fontWeight: 400, marginLeft: 4, color: '#94A3B8'}}>
+                                            {card.unit}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </Card>
+                    </Col>
+                ))}
             </Row>
 
             {/* 货物列表 */}
-            <Card title="货物列表">
+            <Card title={`货物列表（共 ${shipments.length} 条）`}>
                 <Table
                     columns={columns}
                     dataSource={shipments}
                     loading={loading}
                     rowKey="shipment_id"
+                    size="small"
                     pagination={{
-                        total: shipments.length,
                         pageSize: 10,
                         showSizeChanger: true,
                         showQuickJumper: true,
-                        showTotal: (total, range) => `第 ${range[0]}-${range[1]} 条/共 ${total} 条`
+                        showTotal: (total, range) => `第 ${range[0]}-${range[1]} 条 / 共 ${total} 条`,
                     }}
-                    scroll={{x: 1200}}
+                    scroll={{x: 900}}
                 />
             </Card>
+
+            {/* 详情 Drawer */}
+            <Drawer
+                title={
+                    <span style={{fontFamily: 'var(--font-mono)', fontWeight: 700}}>
+                        货物详情 · {selectedShipment?.shipment_id}
+                    </span>
+                }
+                open={drawerOpen}
+                onClose={() => setDrawerOpen(false)}
+                width={400}
+            >
+                {selectedShipment && (
+                    <Descriptions column={1} bordered size="small" labelStyle={{width: 130, color: '#64748B'}}>
+                        <Descriptions.Item label="货物 ID">{selectedShipment.shipment_id}</Descriptions.Item>
+                        <Descriptions.Item label="起点城市">
+                            <Tag color="blue">{selectedShipment.origin_city}</Tag>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="终点城市">
+                            <Tag color="cyan">{selectedShipment.destination_city}</Tag>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="需求量">{selectedShipment.demand} TEU</Descriptions.Item>
+                        <Descriptions.Item label="重量">{selectedShipment.weight} kg</Descriptions.Item>
+                        <Descriptions.Item label="体积">{selectedShipment.volume} m³</Descriptions.Item>
+                        <Descriptions.Item label="时间价值">{selectedShipment.time_value} CNY/TEU</Descriptions.Item>
+                    </Descriptions>
+                )}
+            </Drawer>
         </div>
     );
 };
