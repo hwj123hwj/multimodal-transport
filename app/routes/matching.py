@@ -4,20 +4,23 @@
 """
 import asyncio
 import logging
+import uuid
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
+from typing import Dict, Any
 
-from fastapi import APIRouter
-from fastapi import HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException
 
 from ..services import data_loader, data_service, matching_service
 
-# 创建线程池（根据服务器CPU核心数调整）
+router = APIRouter(prefix="/api", tags=["matching"])
 thread_pool = ThreadPoolExecutor(max_workers=4)
-
 logger = logging.getLogger(__name__)
 
-# 创建路由实例
-router = APIRouter(prefix="/api", tags=["matching"])
+# ── 任务状态存储（进程内单例，够用）────────────────────────────
+# task_id -> { status, started_at, finished_at, result, error }
+_tasks: Dict[str, Dict[str, Any]] = {}
+_CURRENT_TASK_KEY = "__current__"   # 永远指向最新的 task_id
 
 
 @router.get("/shipment-route-mapping")
@@ -25,85 +28,125 @@ async def get_shipment_route_mapping():
     """获取货物与路线映射关系"""
     try:
         matchings = matching_service.get_all_matchings()
-
-        # 构建货物-路线映射数组
         shipment_route_list = []
         for matching in matchings:
             for shipment in matching.get("shipments", []):
                 shipment_route_list.append({
-                    "id": len(shipment_route_list) + 1,  # 自增ID
+                    "id": len(shipment_route_list) + 1,
                     "route_id": shipment.get("assigned_route"),
                     "shipment_id": shipment.get("shipment_id")
                 })
-
-        return {
-            "status": "success",
-            "data": shipment_route_list,
-            "count": len(shipment_route_list)
-        }
+        return {"status": "success", "data": shipment_route_list, "count": len(shipment_route_list)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取货物路线映射失败: {str(e)}")
 
 
 @router.get("/matchings")
 async def get_all_matchings():
-    """获取所有匹配结果"""
     try:
         matchings = matching_service.get_all_matchings()
-        return {
-            "status": "success",
-            "data": matchings,
-            "count": len(matchings)
-        }
+        return {"status": "success", "data": matchings, "count": len(matchings)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取匹配数据失败: {str(e)}")
 
 
 @router.get("/summary")
 async def get_matching_summary():
-    """获取匹配摘要信息"""
     try:
         summary = matching_service.get_matching_summary()
-        return {
-            "status": "success",
-            "data": summary
-        }
+        return {"status": "success", "data": summary}
     except Exception as e:
-        logger.error(f"获取匹配摘要失败: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ── 异步执行算法（立即返回 task_id）────────────────────────────
 @router.post("/matching/execute")
-async def execute_matching_algorithm(background_tasks: BackgroundTasks):
-    """执行匹配算法（异步线程池版本）"""
+async def execute_matching_algorithm():
+    """提交算法执行任务，立即返回 task_id，前端轮询 /matching/status 获取进度"""
+    task_id = str(uuid.uuid4())
+    _tasks[task_id] = {
+        "status": "running",
+        "started_at": datetime.now().isoformat(),
+        "finished_at": None,
+        "result": None,
+        "error": None,
+    }
+    _tasks[_CURRENT_TASK_KEY] = task_id
+
+    loop = asyncio.get_event_loop()
+    loop.run_in_executor(thread_pool, _run_and_record, task_id)
+
+    return {"status": "accepted", "task_id": task_id}
+
+
+def _run_and_record(task_id: str):
+    """在线程池中执行算法并更新任务状态"""
     try:
-        # 将同步函数放入线程池执行
-        loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(
-            thread_pool,
-            matching_service.execute_matching_algorithm
-        )
-        return {"status": "completed", "result": result}
-    except FileNotFoundError as e:
-        logger.error(f"执行匹配算法失败 - 文件缺失: {str(e)}")
-        raise HTTPException(status_code=404, detail=str(e))
+        result = matching_service.execute_matching_algorithm()
+        _tasks[task_id]["status"] = "done"
+        _tasks[task_id]["result"] = result
     except Exception as e:
-        logger.error(f"执行匹配算法失败: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        _tasks[task_id]["status"] = "failed"
+        _tasks[task_id]["error"] = str(e)
+    finally:
+        _tasks[task_id]["finished_at"] = datetime.now().isoformat()
+
+
+# ── 轮询任务状态 ────────────────────────────────────────────────
+@router.get("/matching/status")
+async def get_task_status(task_id: str = None):
+    """查询任务状态。不传 task_id 则返回最新任务状态。"""
+    if task_id is None:
+        task_id = _tasks.get(_CURRENT_TASK_KEY)
+
+    if task_id is None or task_id not in _tasks:
+        # 没有任何任务记录时，尝试从文件判断是否已有结果
+        try:
+            summary = matching_service.get_matching_summary()
+            if summary.get("total_shipments", 0) > 0:
+                return {
+                    "status": "done",
+                    "task_id": None,
+                    "started_at": None,
+                    "finished_at": None,
+                    "result": {"status": "success", "summary": summary},
+                    "error": None,
+                }
+        except Exception:
+            pass
+        return {"status": "idle", "task_id": None}
+
+    task = _tasks[task_id]
+
+    # 如果已完成，附上摘要
+    if task["status"] == "done" and task["result"]:
+        summary = task["result"].get("summary") or {}
+        return {
+            "status": "done",
+            "task_id": task_id,
+            "started_at": task["started_at"],
+            "finished_at": task["finished_at"],
+            "result": {"status": "success", "summary": summary},
+            "error": None,
+        }
+
+    return {
+        "status": task["status"],
+        "task_id": task_id,
+        "started_at": task["started_at"],
+        "finished_at": task["finished_at"],
+        "result": task["result"],
+        "error": task["error"],
+    }
 
 
 @router.get("/shipment/{shipment_id}")
 async def get_matching_by_shipment(shipment_id: int):
-    """根据货物ID获取匹配结果"""
     try:
         matching = matching_service.get_matching_by_shipment(shipment_id)
         if matching is None:
             raise HTTPException(status_code=404, detail=f"未找到货物ID {shipment_id} 的匹配结果")
-
-        return {
-            "status": "success",
-            "data": matching
-        }
+        return {"status": "success", "data": matching}
     except HTTPException:
         raise
     except Exception as e:
@@ -112,44 +155,29 @@ async def get_matching_by_shipment(shipment_id: int):
 
 @router.get("/route/{route_id}")
 async def get_matching_by_route(route_id: int):
-    """根据路线ID获取匹配结果"""
     try:
         matchings = matching_service.get_matching_by_route(route_id)
-        return {
-            "status": "success",
-            "data": matchings,
-            "count": len(matchings)
-        }
+        return {"status": "success", "data": matchings, "count": len(matchings)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取匹配结果失败: {str(e)}")
 
 
 @router.get("/matchings/detailed")
 async def get_detailed_matchings():
-    """获取包含货物和路线详细信息的匹配结果"""
     try:
-        # 获取匹配数据
         matchings = matching_service.get_all_matchings()
-
-        # 获取货物和路线详细信息
         shipments_data = data_service.get_all_shipments()
         routes_data = data_service.get_all_routes()
-
-        # 构建货物和路线映射
         shipment_map = {s["shipment_id"]: s for s in shipments_data["shipments"]}
         route_map = {r["route_id"]: r for r in routes_data["routes"]}
 
-        # 构建详细的匹配结果
         detailed_matchings = []
         for matching in matchings:
             for shipment in matching.get("shipments", []):
                 shipment_id = shipment.get("shipment_id")
                 route_id = shipment.get("assigned_route")
-
                 shipment_info = shipment_map.get(shipment_id, {})
                 route_info = route_map.get(route_id, {}) if route_id != "Self" else None
-
-                # 计算路线利用率（仅对已匹配的路线）
                 route_utilization = 0.0
                 if route_id != "Self":
                     route_utilization = matching_service.calculate_route_utilization(route_id)
@@ -167,7 +195,7 @@ async def get_detailed_matchings():
                         "origin_longitude": shipment_info.get("origin_longitude"),
                         "origin_latitude": shipment_info.get("origin_latitude"),
                         "destination_longitude": shipment_info.get("destination_longitude"),
-                        "destination_latitude": shipment_info.get("destination_latitude")
+                        "destination_latitude": shipment_info.get("destination_latitude"),
                     },
                     "route_info": {
                         "nodes": route_info.get("nodes", []) if route_info else [],
@@ -177,18 +205,13 @@ async def get_detailed_matchings():
                         "total_cost": route_info.get("total_cost", 0) if route_info else 0,
                         "total_travel_time": route_info.get("total_travel_time", 0) if route_info else 0,
                         "capacity": route_info.get("capacity", 0) if route_info else 0,
-                        "available_capacity": route_info.get("available_capacity", 0) if route_info else 0,
                         "route_category": route_info.get("route_category", "未知") if route_info else "未知",
-                        "utilization": route_utilization  # 添加路线利用率
+                        "utilization": route_utilization,
                     } if route_info else None,
                     "status": "matched" if route_id != "Self" else "unmatched",
                 })
 
-        return {
-            "status": "success",
-            "data": detailed_matchings,
-            "count": len(detailed_matchings)
-        }
+        return {"status": "success", "data": detailed_matchings, "count": len(detailed_matchings)}
     except Exception as e:
-        logger.error(f"获取详细匹配结果失败: {str(e)}")
+        logger.error(f"获取详细匹配结果失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取详细匹配结果失败: {str(e)}")

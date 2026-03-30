@@ -168,21 +168,16 @@ export const uploadDataAPI = {
 
 // 算法执行API
 export const executeAlgorithmAPI = {
-    /**
-     * 执行匹配算法
-     * @returns {Promise} 执行结果
-     */
     runMatching: async () => {
         try {
-            const response = await api.post('/matching/execute', {}, {
-                timeout: 300000, // 5分钟超时
-            });
+            const response = await api.post('/matching/execute', {}, {timeout: 15000});
             return response;
         } catch (error) {
             console.error('算法执行失败:', error);
             throw error;
         }
     },
+    getStatus: (taskId) => api.get('/matching/status', {params: taskId ? {task_id: taskId} : {}}),
 };
 
 export const analyticsAPI = {
