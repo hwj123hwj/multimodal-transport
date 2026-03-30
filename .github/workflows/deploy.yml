@@ -45,17 +45,21 @@ jobs:
           CHANGED=$(git diff --name-only HEAD~1 HEAD)
           echo "$CHANGED"
 
-          # 后端相关文件变了才需要重建镜像
-          if echo "$CHANGED" | grep -qE '^(app/|app\.py|Dockerfile\.backend|requirements\.txt|docker-entrypoint\.sh|docker-compose\.yml|cmake-build-debug/)'; then
+          # 需要重建镜像的条件：Dockerfile 或依赖文件或 exe 本身变了
+          if echo "$CHANGED" | grep -qE '^(Dockerfile\.backend|requirements\.txt|docker-entrypoint\.sh|docker-compose\.yml|cmake-build-debug/stable_match\.exe)'; then
+            echo "rebuild=true" >> $GITHUB_OUTPUT
+          else
+            echo "rebuild=false" >> $GITHUB_OUTPUT
+          fi
+
+          # 后端 Python 代码是否变化
+          if echo "$CHANGED" | grep -qE '^(app/|app\.py)'; then
             echo "backend=true" >> $GITHUB_OUTPUT
           else
             echo "backend=false" >> $GITHUB_OUTPUT
           fi
 
-          # 前端静态文件（build产物）是否变化（只要运行了 npm run build 就有变化）
-          echo "frontend=true" >> $GITHUB_OUTPUT
-
-      # ── 4. 同步代码到服务器 ───────────────────────────────────────
+      # ── 4. 同步代码到服务器（排除运行时数据，避免覆盖用户数据）────
       - name: Sync to server
         run: |
           rsync -az --delete \
@@ -63,50 +67,67 @@ jobs:
             --exclude='frontend/node_modules' \
             --exclude='frontend/src' \
             --exclude='frontend/public' \
+            --exclude='data/' \
+            --exclude='cmake-build-debug/result/' \
             -e "ssh -i ~/.ssh/deploy_key" \
             ./ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/opt/tms/
 
-      # ── 5a. 后端有变化：重建镜像并重启（利用 Docker 层缓存）────────
-      - name: Rebuild backend (if changed)
-        if: steps.changes.outputs.backend == 'true'
+      # ── 5a. Dockerfile 等基础文件变了：重建镜像并滚动重启 ─────────
+      - name: Rebuild backend image (if needed)
+        if: steps.changes.outputs.rebuild == 'true'
         run: |
           ssh -i ~/.ssh/deploy_key \
               ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'ENDSSH'
           set -e
           cd /opt/tms
-
-          # 利用层缓存重建（不加 --no-cache）
           docker compose build backend
-
-          # 滚动重启：先起新容器再停旧容器，减少停机时间
           docker compose up -d --no-deps backend
 
           echo "等待后端就绪..."
-          for i in $(seq 1 10); do
+          for i in $(seq 1 12); do
             sleep 5
             STATUS=$(docker inspect tms_backend --format='{{.State.Health.Status}}' 2>/dev/null || echo "starting")
-            echo "[$i/10] 状态: $STATUS"
+            echo "[$i/12] 状态: $STATUS"
             if [ "$STATUS" = "healthy" ]; then
               echo "后端已就绪"
               break
             fi
           done
-
-          # 确保 nginx 也在线
-          docker compose up -d nginx
           ENDSSH
 
-      # ── 5b. 只有前端变化：确保 nginx 在线并 reload ───────────────
-      - name: Reload nginx (frontend only)
-        if: steps.changes.outputs.backend == 'false'
+      # ── 5b. 只有 Python 代码变化：直接 cp 进容器后重启，跳过镜像重建
+      - name: Hot-update backend code (if changed, no rebuild)
+        if: steps.changes.outputs.rebuild == 'false' && steps.changes.outputs.backend == 'true'
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+              ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'ENDSSH'
+          set -e
+          docker cp /opt/tms/app/. tms_backend:/app/app/
+          docker cp /opt/tms/app.py tms_backend:/app/app.py
+          docker restart tms_backend
+
+          echo "等待后端就绪..."
+          for i in $(seq 1 12); do
+            sleep 5
+            STATUS=$(docker inspect tms_backend --format='{{.State.Health.Status}}' 2>/dev/null || echo "starting")
+            echo "[$i/12] 状态: $STATUS"
+            if [ "$STATUS" = "healthy" ]; then
+              echo "后端已就绪"
+              break
+            fi
+          done
+          ENDSSH
+
+      # ── 6. 刷新 nginx（前端 build 产物已由 rsync 同步）────────────
+      - name: Reload nginx
         run: |
           ssh -i ~/.ssh/deploy_key \
               ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
               "cd /opt/tms && docker compose up -d nginx && docker exec tms_nginx nginx -s reload"
 
-      # ── 6. 确认部署结果 ───────────────────────────────────────────
+      # ── 7. 确认部署结果 ───────────────────────────────────────────
       - name: Verify deployment
         run: |
           ssh -i ~/.ssh/deploy_key \
               ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
-              "cd /opt/tms && docker compose ps"
+              "cd /opt/tms && docker compose ps && curl -sf http://localhost/ > /dev/null && echo 'HTTP OK'"
