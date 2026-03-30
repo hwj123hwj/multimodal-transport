@@ -202,7 +202,11 @@ const DataUploadPage = () => {
     const handleRunAll = useCallback(async () => {
         try {
             const res = await api.post('/scenes/run-all');
-            message.success(`已提交 ${res.count} 个场景`);
+            if (res.count === 0) {
+                message.warning(res.message || '没有可提交的场景');
+            } else {
+                message.success(res.message || `已提交 ${res.count} 个场景`);
+            }
             loadScenes();
         } catch (e) {
             message.error('批量提交失败：' + (e.message || '未知'));
@@ -451,9 +455,11 @@ const DataUploadPage = () => {
                         extra={
                             <Space>
                                 <Button icon={<ReloadOutlined/>} onClick={loadScenes} loading={scenesLoading} size="small">刷新</Button>
-                                <Button type="primary" icon={<PlayCircleOutlined/>} onClick={handleRunAll} size="small">
-                                    批量执行全部场景
-                                </Button>
+                                <Tooltip title="最多同时运行 3 个，超出部分需等待完成后再次提交">
+                                    <Button type="primary" icon={<PlayCircleOutlined/>} onClick={handleRunAll} size="small">
+                                        批量执行（最多3个）
+                                    </Button>
+                                </Tooltip>
                             </Space>
                         }
                     >

@@ -18,7 +18,8 @@ from pydantic import BaseModel
 
 router = APIRouter(prefix="/api", tags=["scenes"])
 logger = logging.getLogger(__name__)
-_pool = ThreadPoolExecutor(max_workers=4)
+_pool = ThreadPoolExecutor(max_workers=3)
+MAX_CONCURRENT = 3  # 最多同时运行的算法任务数
 
 # ── 路径常量 ──────────────────────────────────────────────────
 # 用 __file__ 锚定项目根目录，不依赖进程工作目录
@@ -201,6 +202,10 @@ async def run_scene(scene_id: str, params: AlgoParams = AlgoParams()):
     if not (scene_dir / "route.csv").exists():
         raise HTTPException(status_code=400, detail="场景数据文件不完整")
 
+    running_count = sum(1 for t in _tasks.values() if t["status"] == "running")
+    if running_count >= MAX_CONCURRENT:
+        raise HTTPException(status_code=429, detail=f"当前已有 {running_count} 个任务在运行，最多允许 {MAX_CONCURRENT} 个并发，请等待完成后再提交")
+
     task_id = str(uuid.uuid4())
     _tasks[task_id] = {
         "task_id": task_id, "scene_id": scene_id,
@@ -231,11 +236,20 @@ async def scene_status(scene_id: str):
 
 @router.post("/scenes/run-all")
 async def run_all_scenes():
-    """批量提交所有 ready 场景"""
+    """批量提交所有 ready 场景，最多同时运行 MAX_CONCURRENT 个"""
     scenes = _load_scenes()
+
+    # 当前已在运行的任务数
+    running_count = sum(1 for t in _tasks.values() if t["status"] == "running")
+    slots = MAX_CONCURRENT - running_count
+    if slots <= 0:
+        return {"status": "rejected", "message": f"已有 {running_count} 个任务在运行，最多允许 {MAX_CONCURRENT} 个并发", "count": 0}
+
     submitted = []
     for s in scenes:
-        if s.get("status") in ("running",):
+        if len(submitted) >= slots:
+            break
+        if s.get("status") == "running":
             continue
         task_id = str(uuid.uuid4())
         sid = s["id"]
@@ -248,7 +262,15 @@ async def run_all_scenes():
         loop = asyncio.get_event_loop()
         loop.run_in_executor(_pool, _run_scene, task_id, sid)
         submitted.append(sid)
-    return {"status": "accepted", "submitted": submitted, "count": len(submitted)}
+
+    skipped = len([s for s in scenes if s["id"] not in submitted and s.get("status") != "running"])
+    return {
+        "status": "accepted",
+        "submitted": submitted,
+        "count": len(submitted),
+        "skipped": skipped,
+        "message": f"已提交 {len(submitted)} 个，{'还有 ' + str(skipped) + ' 个待后续执行' if skipped else '全部已提交'}"
+    }
 
 
 # ── 横向对比 ──────────────────────────────────────────────────
