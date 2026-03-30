@@ -91,15 +91,18 @@ jobs:
               break
             fi
           done
+
+          # 确保 nginx 也在线
+          docker compose up -d nginx
           ENDSSH
 
-      # ── 5b. 只有前端变化：直接重载 nginx，零停机 ─────────────────
+      # ── 5b. 只有前端变化：确保 nginx 在线并 reload ───────────────
       - name: Reload nginx (frontend only)
         if: steps.changes.outputs.backend == 'false'
         run: |
           ssh -i ~/.ssh/deploy_key \
               ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
-              "cd /opt/tms && docker exec tms_nginx nginx -s reload"
+              "cd /opt/tms && docker compose up -d nginx && docker exec tms_nginx nginx -s reload"
 
       # ── 6. 确认部署结果 ───────────────────────────────────────────
       - name: Verify deployment
