@@ -1,14 +1,14 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {
-    Alert, Badge, Button, Card, Col, Descriptions,
-    message, Popconfirm, Progress, Row, Space,
+    Alert, Badge, Button, Card, Col, Descriptions, Form, InputNumber,
+    message, Modal, Popconfirm, Progress, Row, Space,
     Steps, Table, Tag, Tooltip, Typography, Upload,
 } from 'antd';
 import {
     CheckCircleOutlined, CloudUploadOutlined,
     DeleteOutlined, ExclamationCircleOutlined,
     EyeOutlined, FileTextOutlined, FileZipOutlined,
-    PlayCircleOutlined, ReloadOutlined,
+    PlayCircleOutlined, ReloadOutlined, SettingOutlined,
     SyncOutlined, ClockCircleOutlined,
 } from '@ant-design/icons';
 import {uploadDataAPI} from '../../services/api';
@@ -54,6 +54,11 @@ const DataUploadPage = () => {
     const [zipResult, setZipResult]   = useState(null);
     // 场景任务状态轮询
     const [sceneTaskMap, setSceneTaskMap] = useState({}); // scene_id -> {status, result}
+    // 算法参数弹窗
+    const [algoModal, setAlgoModal]   = useState(null); // scene_id 或 null
+    const [algoForm] = Form.useForm();
+
+    const DEFAULT_PARAMS = {max_prefer_list: 1000000, max_iter: 2000, max_incomplete: 200, prob_random_walk: 0.5};
 
     const loadUploaded = useCallback(async () => {
         try {
@@ -170,16 +175,28 @@ const DataUploadPage = () => {
         }
     }, []);
 
-    // ── 执行单个场景 ──────────────────────────────────────────
-    const handleRunScene = useCallback(async (sceneId) => {
+    // ── 执行单个场景（弹窗确认参数后提交） ───────────────────
+    const openAlgoModal = useCallback((sceneId) => {
+        algoForm.setFieldsValue(DEFAULT_PARAMS);
+        setAlgoModal(sceneId);
+    }, [algoForm]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const handleRunScene = useCallback(async (sceneId, params) => {
         try {
-            await api.post(`/scenes/${sceneId}/run`);
+            await api.post(`/scenes/${sceneId}/run`, params);
             message.success('已提交，算法在后台运行');
             loadScenes();
         } catch (e) {
             message.error('提交失败：' + (e.message || '未知'));
         }
     }, [loadScenes]);
+
+    const handleAlgoOk = useCallback(async () => {
+        const values = await algoForm.validateFields();
+        const sceneId = algoModal;
+        setAlgoModal(null);
+        await handleRunScene(sceneId, values);
+    }, [algoForm, algoModal, handleRunScene]);
 
     // ── 批量跑所有场景 ────────────────────────────────────────
     const handleRunAll = useCallback(async () => {
@@ -240,9 +257,9 @@ const DataUploadPage = () => {
                 return (
                     <Button
                         size="small" type="primary"
-                        icon={ts === 'running' ? <SyncOutlined spin/> : <PlayCircleOutlined/>}
+                        icon={ts === 'running' ? <SyncOutlined spin/> : <SettingOutlined/>}
                         disabled={ts === 'running'}
-                        onClick={() => handleRunScene(r.id)}
+                        onClick={() => openAlgoModal(r.id)}
                     >
                         {ts === 'running' ? '运行中' : '执行'}
                     </Button>
@@ -455,6 +472,42 @@ const DataUploadPage = () => {
                     </Card>
                 </Col>
             </Row>
+
+            {/* 算法参数配置弹窗 */}
+            <Modal
+                title={<Space><SettingOutlined/>算法参数配置</Space>}
+                open={!!algoModal}
+                onOk={handleAlgoOk}
+                onCancel={() => setAlgoModal(null)}
+                okText="确认执行"
+                cancelText="取消"
+                width={420}
+            >
+                <Alert
+                    type="info" showIcon style={{marginBottom: 16}}
+                    message="参数将覆盖算法默认值，留空则使用默认值。较大的参数值会增加运算时间但可能提升匹配质量。"
+                />
+                <Form form={algoForm} layout="vertical" size="small">
+                    <Form.Item label="最大偏好列表长度 (MaxNum_preferList)" name="max_prefer_list"
+                        tooltip="每条路线记录的最多候选匹配方案数，默认100万">
+                        <InputNumber min={1000} max={10000000} step={100000} style={{width: '100%'}}
+                            formatter={v => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                            parser={v => v.replace(/,/g, '')}/>
+                    </Form.Item>
+                    <Form.Item label="最大迭代次数 (MaxNum_iter)" name="max_iter"
+                        tooltip="算法最大迭代轮数，默认2000">
+                        <InputNumber min={100} max={100000} step={100} style={{width: '100%'}}/>
+                    </Form.Item>
+                    <Form.Item label="最大不完整稳定匹配次数 (MaxNum_incompleteStable)" name="max_incomplete"
+                        tooltip="允许的最大不完整稳定匹配次数，默认200">
+                        <InputNumber min={10} max={10000} step={50} style={{width: '100%'}}/>
+                    </Form.Item>
+                    <Form.Item label="随机游走概率 (probability_randomWalk)" name="prob_random_walk"
+                        tooltip="局部搜索中随机游走的概率，取值0~1，默认0.5">
+                        <InputNumber min={0} max={1} step={0.05} precision={2} style={{width: '100%'}}/>
+                    </Form.Item>
+                </Form>
+            </Modal>
         </div>
     );
 };

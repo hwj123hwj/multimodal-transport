@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, UploadFile, File
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/api", tags=["scenes"])
 logger = logging.getLogger(__name__)
@@ -107,7 +108,7 @@ def _parse_result(result_csv: Path) -> Optional[Dict]:
         return None
 
 
-def _run_scene(task_id: str, scene_id: str):
+def _run_scene(task_id: str, scene_id: str, algo_params: Optional[Dict] = None):
     """在线程池中执行算法"""
     import subprocess, time
     task = _tasks[task_id]
@@ -121,6 +122,13 @@ def _run_scene(task_id: str, scene_id: str):
     result_dir.mkdir(parents=True, exist_ok=True)
     result_file = result_dir / "stable_matching.csv"
 
+    # 算法参数默认值
+    p = algo_params or {}
+    max_prefer  = str(int(p.get("max_prefer_list",  1000000)))
+    max_iter    = str(int(p.get("max_iter",         2000)))
+    max_incomplete = str(int(p.get("max_incomplete", 200)))
+    prob_walk   = str(float(p.get("prob_random_walk", 0.5)))
+
     try:
         _update_scene(scene_id, status="running")
         proc = subprocess.Popen(
@@ -131,6 +139,7 @@ def _run_scene(task_id: str, scene_id: str):
                 str(scene_dir / "route.csv"),
                 str(scene_dir / "cooperation_parameter.csv"),
                 str(result_file),
+                max_prefer, max_iter, max_incomplete, prob_walk,
             ],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
         )
@@ -175,9 +184,16 @@ async def list_scenes():
     return {"status": "success", "data": scenes}
 
 
+class AlgoParams(BaseModel):
+    max_prefer_list:  int   = 1000000  # MaxNum_preferList
+    max_iter:         int   = 2000     # MaxNum_iter
+    max_incomplete:   int   = 200      # MaxNum_incompleteStable
+    prob_random_walk: float = 0.5      # probability_randomWalk
+
+
 @router.post("/scenes/{scene_id}/run")
-async def run_scene(scene_id: str):
-    """提交单个场景算法任务"""
+async def run_scene(scene_id: str, params: AlgoParams = AlgoParams()):
+    """提交单个场景算法任务，可选算法参数"""
     scene = _get_scene(scene_id)
     if not scene:
         raise HTTPException(status_code=404, detail=f"场景不存在: {scene_id}")
@@ -194,7 +210,7 @@ async def run_scene(scene_id: str):
     _scene_tasks[scene_id] = task_id
 
     loop = asyncio.get_event_loop()
-    loop.run_in_executor(_pool, _run_scene, task_id, scene_id)
+    loop.run_in_executor(_pool, _run_scene, task_id, scene_id, params.model_dump())
 
     return {"status": "accepted", "task_id": task_id, "scene_id": scene_id}
 
