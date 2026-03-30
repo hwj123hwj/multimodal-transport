@@ -1,47 +1,68 @@
 import React, {useEffect, useState} from 'react';
 import {Button, Card, Col, Empty, Progress, Row, Statistic, Table, Tag} from 'antd';
+import {
+    CheckCircleOutlined,
+    ClockCircleOutlined,
+    DotChartOutlined,
+    ExclamationCircleOutlined,
+    NodeIndexOutlined,
+    InboxOutlined,
+} from '@ant-design/icons';
 import {matchingAPI, routesAPI, shipmentsAPI} from '../../services/api';
-import MapViewer from '../../components/MapViewer/MapViewer';
+import SVGMapViewer from '../../components/MapViewer/SVGMapViewer';
 
 const {Column} = Table;
 
 // ── Stat Card ────────────────────────────────────────────────
-const StatCard = ({title, value, suffix, precision, colorClass, icon, sub}) => (
+const StatCard = ({title, value, suffix, precision, colorClass, icon, iconColor, sub, noSuffixSpace}) => (
     <Card className={colorClass} style={{height: '100%'}}>
-        <div style={{display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between'}}>
-            <div>
+        <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8}}>
+            {/* 图标 */}
+            <div style={{
+                width: 44, height: 44, borderRadius: '50%',
+                background: `${iconColor}18`,
+                border: `1.5px solid ${iconColor}30`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 20, flexShrink: 0, color: iconColor,
+            }}>{icon}</div>
+            {/* 数值 */}
+            <div style={{flex: 1, minWidth: 0, textAlign: 'right'}}>
                 <div style={{
                     fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)',
-                    textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8
+                    textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4,
+                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
                 }}>{title}</div>
-                <Statistic
-                    value={value}
-                    suffix={suffix}
-                    precision={precision}
-                    valueStyle={{
-                        fontSize: 28,
-                        fontWeight: 800,
-                        fontFamily: 'var(--font-mono)',
-                        lineHeight: 1.1,
-                    }}
-                />
-                {sub && <div style={{marginTop: 6, fontSize: 12, color: 'var(--text-muted)'}}>{sub}</div>}
+                {noSuffixSpace ? (
+                    <div style={{
+                        fontSize: 24, fontWeight: 800,
+                        fontFamily: 'var(--font-mono)', lineHeight: 1.1,
+                        whiteSpace: 'nowrap', color: 'var(--text-primary)'
+                    }}>
+                        {typeof value === 'number' ? value.toFixed(precision ?? 0) : value}{suffix}
+                    </div>
+                ) : (
+                    <Statistic
+                        value={value}
+                        suffix={suffix}
+                        precision={precision}
+                        valueStyle={{
+                            fontSize: 24, fontWeight: 800,
+                            fontFamily: 'var(--font-mono)', lineHeight: 1.1,
+                            whiteSpace: 'nowrap',
+                        }}
+                    />
+                )}
+                {sub && <div style={{marginTop: 4, fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap'}}>{sub}</div>}
             </div>
-            <div style={{
-                width: 40, height: 40, borderRadius: 10,
-                background: 'rgba(0,0,0,0.06)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 20, flexShrink: 0
-            }}>{icon}</div>
         </div>
     </Card>
 );
 
 export const DashboardPage = () => {
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState(false);
     const [routes, setRoutes] = useState([]);
     const [shipments, setShipments] = useState([]);
-    const [matchingResults, setMatchingResults] = useState([]);
     const [matchRoutesShipmentsData, setMatchRoutesShipmentsData] = useState([]);
     const [stats, setStats] = useState({
         totalRoutes: 0, totalShipments: 0,
@@ -51,6 +72,7 @@ export const DashboardPage = () => {
 
     const loadData = async () => {
         setLoading(true);
+        setLoadError(false);
         try {
             const [routesRes, shipmentsRes, matchingRes, mappingRes] = await Promise.all([
                 routesAPI.getAll(),
@@ -65,7 +87,6 @@ export const DashboardPage = () => {
 
             setRoutes(routesData);
             setShipments(shipmentsData);
-            setMatchingResults(matchingData);
             setMatchRoutesShipmentsData(mappingData);
 
             const first = Array.isArray(matchingData) ? matchingData[0] : null;
@@ -78,7 +99,7 @@ export const DashboardPage = () => {
                 cpuTime:           first?.cpu_time ?? 0,
             });
         } catch (e) {
-            console.error('加载数据失败:', e);
+            setLoadError(true);
         } finally {
             setLoading(false);
         }
@@ -99,41 +120,57 @@ export const DashboardPage = () => {
             {/* Header row */}
             <div className="page-header">
                 <h1 style={{margin: 0}}>系统概览</h1>
-                <Button
-                    type="primary" onClick={loadData} loading={loading}
-                    style={{borderRadius: 8}}
-                >
+                <Button type="primary" onClick={loadData} loading={loading} style={{borderRadius: 8}}>
                     刷新数据
                 </Button>
             </div>
+
+            {loadError && (
+                <div style={{
+                    marginBottom: 16, padding: '10px 16px',
+                    background: '#FEF2F2', border: '1px solid #FCA5A5',
+                    borderRadius: 8, color: '#DC2626', fontSize: 13,
+                    display: 'flex', alignItems: 'center', gap: 8
+                }}>
+                    <ExclamationCircleOutlined/>
+                    无法连接到后端服务，数据加载失败。请确认服务正常后点击「刷新数据」。
+                </div>
+            )}
 
             {/* KPI Row */}
             <Row gutter={[12, 12]} style={{marginBottom: 16}}>
                 <Col xs={12} sm={8} lg={4}>
                     <StatCard title="总路线数" value={stats.totalRoutes}
-                        colorClass="stat-card-blue" icon="🛤"
+                        colorClass="stat-card-blue"
+                        icon={<NodeIndexOutlined/>} iconColor="#2563EB"
                         sub="可用运输路线"/>
                 </Col>
                 <Col xs={12} sm={8} lg={4}>
                     <StatCard title="总货物数" value={stats.totalShipments}
-                        colorClass="stat-card-green" icon="📦"
+                        colorClass="stat-card-green"
+                        icon={<InboxOutlined/>} iconColor="#059669"
                         sub="待匹配货物"/>
                 </Col>
                 <Col xs={12} sm={8} lg={4}>
                     <StatCard title="匹配成功" value={stats.matchedShipments}
-                        colorClass="stat-card-green" icon="✅"/>
+                        colorClass="stat-card-green"
+                        icon={<CheckCircleOutlined/>} iconColor="#059669"/>
                 </Col>
                 <Col xs={12} sm={8} lg={4}>
                     <StatCard title="未匹配" value={stats.unmatchedShipments}
-                        colorClass="stat-card-red" icon="⚠"/>
+                        colorClass="stat-card-red"
+                        icon={<ExclamationCircleOutlined/>} iconColor="#DC2626"/>
                 </Col>
                 <Col xs={12} sm={8} lg={4}>
                     <StatCard title="匹配率" value={stats.matchingRate} suffix="%"
-                        colorClass="stat-card-orange" icon="📊"/>
+                        colorClass="stat-card-orange"
+                        icon={<DotChartOutlined/>} iconColor="#D97706"/>
                 </Col>
                 <Col xs={12} sm={8} lg={4}>
                     <StatCard title="算法耗时" value={stats.cpuTime} suffix="s" precision={2}
-                        colorClass="stat-card-purple" icon="⚡"/>
+                        colorClass="stat-card-purple"
+                        icon={<ClockCircleOutlined/>} iconColor="#7C3AED"
+                        noSuffixSpace/>
                 </Col>
             </Row>
 
@@ -176,15 +213,18 @@ export const DashboardPage = () => {
                     </Card>
 
                     {/* Map */}
-                    <Card title="路线与货物分布" style={{height: 420}}>
-                        <div style={{height: 340}}>
-                            <MapViewer
-                                mode="combined"
-                                routes={routes}
-                                shipments={shipments}
-                                height={340}
-                            />
-                        </div>
+                    <Card
+                        title="路线与货物分布"
+                        styles={{body: {padding: 0, height: 320, overflow: 'hidden'}}}
+                    >
+                        <SVGMapViewer
+                            mode="combined"
+                            routes={routes}
+                            shipments={shipments}
+                            height={320}
+                            showControls={false}
+                            showLegend={false}
+                        />
                     </Card>
                 </Col>
 

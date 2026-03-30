@@ -54,7 +54,6 @@ const ShipmentsPage = () => {
             };
             setStats(stats);
         } catch (error) {
-            message.error('获取货物数据失败');
             console.error('获取货物数据失败:', error);
         } finally {
             setLoading(false);

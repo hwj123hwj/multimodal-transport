@@ -170,8 +170,8 @@ body {
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 10px;
+  gap: 10px;
+  padding: 9px 12px;
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: all var(--duration) var(--ease);
@@ -450,11 +450,11 @@ body {
 }
 
 /* ── Stat Card Gradient Variants ─────────────────────────── */
-.stat-card-blue   { background: linear-gradient(135deg, #EFF6FF, #DBEAFE) !important; border-color: #BFDBFE !important; }
-.stat-card-green  { background: linear-gradient(135deg, #ECFDF5, #D1FAE5) !important; border-color: #A7F3D0 !important; }
-.stat-card-red    { background: linear-gradient(135deg, #FEF2F2, #FEE2E2) !important; border-color: #FECACA !important; }
-.stat-card-orange { background: linear-gradient(135deg, #FFF7ED, #FFEDD5) !important; border-color: #FED7AA !important; }
-.stat-card-purple { background: linear-gradient(135deg, #F5F3FF, #EDE9FE) !important; border-color: #DDD6FE !important; }
+.stat-card-blue   { background: linear-gradient(145deg, #EFF6FF 0%, #DBEAFE 100%) !important; border-color: #93C5FD !important; }
+.stat-card-green  { background: linear-gradient(145deg, #ECFDF5 0%, #D1FAE5 100%) !important; border-color: #6EE7B7 !important; }
+.stat-card-red    { background: linear-gradient(145deg, #FEF2F2 0%, #FEE2E2 100%) !important; border-color: #FCA5A5 !important; }
+.stat-card-orange { background: linear-gradient(145deg, #FFFBEB 0%, #FEF3C7 100%) !important; border-color: #FCD34D !important; }
+.stat-card-purple { background: linear-gradient(145deg, #F5F3FF 0%, #EDE9FE 100%) !important; border-color: #C4B5FD !important; }
 
 .stat-card-blue   .ant-statistic-title,
 .stat-card-green  .ant-statistic-title,

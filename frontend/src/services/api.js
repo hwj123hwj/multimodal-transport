@@ -44,19 +44,17 @@ api.interceptors.request.use(
     }
 );
 
-// 响应拦截器
+// 限制同时最多显示2条错误提示
+message.config({ maxCount: 2 });
+
+// 响应拦截器 — 静默失败，由调用方决定是否提示
 api.interceptors.response.use(
     (response) => {
         return response.data;
     },
     (error) => {
-        if (error.response) {
-            message.error(error.response.data.detail || '请求失败');
-        } else if (error.request) {
-            message.error('网络连接失败');
-        } else {
-            message.error('请求配置错误');
-        }
+        // 只把错误往上抛，不在拦截器弹toast
+        // 需要提示用户的地方（上传、执行算法等）在调用处自己catch处理
         return Promise.reject(error);
     }
 );
@@ -67,9 +65,9 @@ uploadApi.interceptors.response.use(
         return response.data;
     },
     (error) => {
-        const errorMessage = error.response?.data?.message || error.message || '请求失败';
-        message.error(errorMessage);
-        return Promise.reject(new Error(errorMessage));
+        return Promise.reject(new Error(
+            error.response?.data?.detail || error.response?.data?.message || error.message || '请求失败'
+        ));
     }
 );
 

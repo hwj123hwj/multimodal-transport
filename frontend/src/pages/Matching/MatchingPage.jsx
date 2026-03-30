@@ -59,7 +59,6 @@ const MatchingPage = () => {
             message.success('匹配结果加载成功');
         } catch (error) {
             console.error('获取匹配结果失败:', error);
-            message.error('获取匹配结果失败');
             setMatchingResults([]);
             setMatchTable([]);
             setStatistics({ total_shipments: 0, unmatched_shipments: 0, matchedShipments: 0, avgMatchScore: 0 });

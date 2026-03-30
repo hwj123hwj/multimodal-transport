@@ -357,8 +357,8 @@ const SVGMapViewer = ({
 
         const svg = svgRef.current;
         const container = svg.parentElement;
-        const width = container.clientWidth || 800;
-        const height = container.clientHeight || 500;
+        const width = container ? (container.clientWidth || 800) : 800;
+        const heightPx = container ? (container.clientHeight || 500) : 500;
 
         // 清空SVG内容
         svg.innerHTML = '';
@@ -366,12 +366,10 @@ const SVGMapViewer = ({
         // 设置SVG尺寸和视图框
         const viewBoxWidth = 800;
         const viewBoxHeight = 600;
-        const viewBoxX = 0;
-        const viewBoxY = 0;
 
-        svg.setAttribute('viewBox', `${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}`);
+        svg.setAttribute('viewBox', `0 0 ${viewBoxWidth} ${viewBoxHeight}`);
         svg.setAttribute('width', width);
-        svg.setAttribute('height', height);
+        svg.setAttribute('height', heightPx);
         svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
 
         // 创建背景
@@ -399,6 +397,10 @@ const SVGMapViewer = ({
                 break;
             case 'matching':
                 drawMatchingResults();
+                break;
+            case 'combined':
+                drawRoutes();
+                drawShipments();
                 break;
             default:
                 drawRoutes();
@@ -446,48 +448,58 @@ const SVGMapViewer = ({
         drawSVGMap();
     }, [routes, shipments, matchings, mode, drawSVGMap]);
 
+    const svgEl = (
+        <svg
+            ref={svgRef}
+            className="svg-map"
+            style={{
+                width: '100%',
+                height: '100%',
+                background: '#EFF6FF',
+                display: 'block',
+            }}
+        />
+    );
+
+    // 无控制栏时直接返回裸 SVG（让父级 Card 控制尺寸）
+    if (!showControls) {
+        return (
+            <div style={{width: '100%', height: typeof height === 'number' ? height : parseInt(height, 10) || 320}}>
+                {svgEl}
+            </div>
+        );
+    }
+
     return (
         <div className={`map-viewer ${isFullscreen ? 'fullscreen' : ''}`}>
             <Card
                 title={
                     <div className="map-viewer-header">
                         <span>SVG地图视图</span>
-                        {showControls && (
-                            <Space className="map-viewer-controls">
-                                <Button
-                                    icon={<ReloadOutlined/>}
-                                    onClick={handleReload}
-                                    size="small"
-                                    loading={loading}
-                                >
-                                    刷新
-                                </Button>
-                                <Button
-                                    icon={isFullscreen ? <ShrinkOutlined/> : <ExpandOutlined/>}
-                                    onClick={toggleFullscreen}
-                                    size="small"
-                                >
-                                    {isFullscreen ? '退出全屏' : '全屏'}
-                                </Button>
-                            </Space>
-                        )}
+                        <Space className="map-viewer-controls">
+                            <Button
+                                icon={<ReloadOutlined/>}
+                                onClick={handleReload}
+                                size="small"
+                                loading={loading}
+                            >
+                                刷新
+                            </Button>
+                            <Button
+                                icon={isFullscreen ? <ShrinkOutlined/> : <ExpandOutlined/>}
+                                onClick={toggleFullscreen}
+                                size="small"
+                            >
+                                {isFullscreen ? '退出全屏' : '全屏'}
+                            </Button>
+                        </Space>
                     </div>
                 }
                 className="map-card"
                 style={{height: isFullscreen ? '100vh' : height}}
             >
                 <div className="map-container">
-                    <svg
-                        ref={svgRef}
-                        className="svg-map"
-                        style={{
-                            width: '100%',
-                            height: '100%',
-                            background: '#f5f5f5',
-                            border: '1px solid #ddd',
-                            borderRadius: '4px'
-                        }}
-                    />
+                    {svgEl}
 
                     {showLegend && (
                         <div className="map-legend">
@@ -497,10 +509,6 @@ const SVGMapViewer = ({
                                     <div className="legend-item">
                                         <div className="legend-color" style={{background: '#1890ff'}}></div>
                                         <span>运输路线</span>
-                                    </div>
-                                    <div className="legend-item">
-                                        <div className="legend-marker" style={{background: '#1890ff'}}></div>
-                                        <span>路线节点</span>
                                     </div>
                                 </div>
                             )}
@@ -514,10 +522,6 @@ const SVGMapViewer = ({
                                         <div className="legend-marker" style={{background: '#f5222d'}}></div>
                                         <span>终点</span>
                                     </div>
-                                    <div className="legend-item">
-                                        <div className="legend-line"></div>
-                                        <span>运输路径</span>
-                                    </div>
                                 </div>
                             )}
                             {mode === 'matching' && (
@@ -530,30 +534,16 @@ const SVGMapViewer = ({
                                         <div className="legend-marker" style={{background: '#f5222d'}}></div>
                                         <span>未匹配</span>
                                     </div>
-                                    <div className="legend-item">
-                                        <div className="legend-marker" style={{background: '#faad14'}}></div>
-                                        <span>自营</span>
-                                    </div>
                                 </div>
                             )}
                         </div>
                     )}
 
-                    {/* 选中信息面板 */}
                     {(selectedRoute || selectedShipment) && (
                         <div className="selection-info">
                             <div className="info-header">
                                 <span>选中信息</span>
-                                <Button
-                                    type="text"
-                                    size="small"
-                                    onClick={() => {
-                                        setSelectedRoute(null);
-                                        setSelectedShipment(null);
-                                    }}
-                                >
-                                    关闭
-                                </Button>
+                                <Button type="text" size="small" onClick={() => { setSelectedRoute(null); setSelectedShipment(null); }}>关闭</Button>
                             </div>
                             {selectedRoute && (
                                 <div className="info-content">
@@ -567,8 +557,7 @@ const SVGMapViewer = ({
                                     <p><strong>起点:</strong> {getCityInfo(selectedShipment.origin)?.name}</p>
                                     <p><strong>终点:</strong> {getCityInfo(selectedShipment.destination)?.name}</p>
                                     <p><strong>需求量:</strong> {selectedShipment.demand}</p>
-                                    <p><strong>状态:</strong> {selectedShipment.assigned_route ? '已分配' : '未分配'}
-                                    </p>
+                                    <p><strong>状态:</strong> {selectedShipment.assigned_route ? '已分配' : '未分配'}</p>
                                 </div>
                             )}
                         </div>

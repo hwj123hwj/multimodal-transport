@@ -45,7 +45,6 @@ const RoutesPage = () => {
             message.success('路线数据加载成功');
         } catch (error) {
             console.error('获取路线数据失败:', error);
-            message.error('获取路线数据失败');
             setRoutes([]);
             setStatistics({
                 totalRoutes: 0,
@@ -84,8 +83,7 @@ const RoutesPage = () => {
                 await fetchRoutes();
             }
         } catch (error) {
-            console.error('搜索路线失败:', error);
-            message.error(`搜索路线失败: ${error.message || error}`);
+            message.error('搜索失败，请检查网络连接');
         } finally {
             setLoading(false);
         }
