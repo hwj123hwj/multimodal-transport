@@ -1,23 +1,17 @@
 import React, {useEffect, useState} from 'react';
+import {Button, Card, Col, Input, message, Row, Space, Statistic, Table, Tag} from 'antd';
 import {
-    Button, Card, Col, Descriptions, Drawer,
-    Input, message, Row, Space, Statistic, Table, Tag
-} from 'antd';
-import {
-    ExportOutlined, EyeOutlined,
-    ReloadOutlined, SearchOutlined,
-    InboxOutlined, ColumnWidthOutlined,
-    EnvironmentOutlined, AppstoreOutlined,
+    AppstoreOutlined, ColumnWidthOutlined,
+    EnvironmentOutlined, ExportOutlined,
+    InboxOutlined, ReloadOutlined, SearchOutlined,
 } from '@ant-design/icons';
 import {shipmentsAPI} from '../../services/api';
 
 const ShipmentsPage = () => {
-    const [shipments, setShipments]           = useState([]);
-    const [loading, setLoading]               = useState(false);
-    const [originSearch, setOriginSearch]     = useState('');
-    const [destSearch, setDestSearch]         = useState('');
-    const [drawerOpen, setDrawerOpen]         = useState(false);
-    const [selectedShipment, setSelectedShipment] = useState(null);
+    const [shipments, setShipments]       = useState([]);
+    const [loading, setLoading]           = useState(false);
+    const [originSearch, setOriginSearch] = useState('');
+    const [destSearch, setDestSearch]     = useState('');
     const [stats, setStats] = useState({total: 0, totalDemand: 0, totalWeight: 0, totalVolume: 0});
 
     const fetchShipments = async () => {
@@ -69,15 +63,13 @@ const ShipmentsPage = () => {
 
     useEffect(() => { fetchShipments(); }, [originSearch, destSearch]); // eslint-disable-line
 
-    // ── 统计卡配置 ──────────────────────────────────────────────
     const statCards = [
-        {label: '总货物数',   value: stats.total,                  suffix: undefined, prefix: <InboxOutlined/>,       color: '#1890ff'},
-        {label: '总需求量',   value: stats.totalDemand,            suffix: 'TEU',     prefix: <ColumnWidthOutlined/>, color: '#fa8c16'},
-        {label: '总重量',     value: stats.totalWeight.toFixed(0), suffix: 'kg',      prefix: <AppstoreOutlined/>,    color: '#52c41a'},
-        {label: '总体积',     value: stats.totalVolume.toFixed(0), suffix: 'm³',      prefix: <EnvironmentOutlined/>, color: '#722ed1'},
+        {label: '总货物数', value: stats.total,                  suffix: undefined, prefix: <InboxOutlined/>,       color: '#1890ff'},
+        {label: '总需求量', value: stats.totalDemand,            suffix: 'TEU',     prefix: <ColumnWidthOutlined/>, color: '#fa8c16'},
+        {label: '总重量',   value: stats.totalWeight.toFixed(0), suffix: 'kg',      prefix: <AppstoreOutlined/>,    color: '#52c41a'},
+        {label: '总体积',   value: stats.totalVolume.toFixed(0), suffix: 'm³',      prefix: <EnvironmentOutlined/>, color: '#722ed1'},
     ];
 
-    // ── 表格列 ──────────────────────────────────────────────────
     const columns = [
         {
             title: '货物ID',
@@ -131,26 +123,6 @@ const ShipmentsPage = () => {
             width: 160,
             align: 'right',
             render: v => <span style={{fontFamily: 'var(--font-mono)'}}>{v}</span>,
-        },
-        {
-            title: '操作',
-            key: 'actions',
-            width: 80,
-            align: 'center',
-            render: (_, record) => (
-                <Button
-                    size="small"
-                    icon={<EyeOutlined/>}
-                    onClick={() => { setSelectedShipment(record); setDrawerOpen(true); }}
-                    style={{
-                        color: '#64748B',
-                        borderColor: '#E2E8F0',
-                        background: '#F8FAFC',
-                    }}
-                >
-                    详情
-                </Button>
-            ),
         },
     ];
 
@@ -230,34 +202,6 @@ const ShipmentsPage = () => {
                     scroll={{x: 900}}
                 />
             </Card>
-
-            {/* 详情 Drawer */}
-            <Drawer
-                title={
-                    <span style={{fontFamily: 'var(--font-mono)', fontWeight: 700}}>
-                        货物详情 · {selectedShipment?.shipment_id}
-                    </span>
-                }
-                open={drawerOpen}
-                onClose={() => setDrawerOpen(false)}
-                width={400}
-            >
-                {selectedShipment && (
-                    <Descriptions column={1} bordered size="small" labelStyle={{width: 130, color: '#64748B'}}>
-                        <Descriptions.Item label="货物 ID">{selectedShipment.shipment_id}</Descriptions.Item>
-                        <Descriptions.Item label="起点城市">
-                            <Tag color="blue">{selectedShipment.origin_city}</Tag>
-                        </Descriptions.Item>
-                        <Descriptions.Item label="终点城市">
-                            <Tag color="cyan">{selectedShipment.destination_city}</Tag>
-                        </Descriptions.Item>
-                        <Descriptions.Item label="需求量">{selectedShipment.demand} TEU</Descriptions.Item>
-                        <Descriptions.Item label="重量">{selectedShipment.weight} kg</Descriptions.Item>
-                        <Descriptions.Item label="体积">{selectedShipment.volume} m³</Descriptions.Item>
-                        <Descriptions.Item label="时间价值">{selectedShipment.time_value} CNY/TEU</Descriptions.Item>
-                    </Descriptions>
-                )}
-            </Drawer>
         </div>
     );
 };
