@@ -1,6 +1,5 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {Button, Card, Space} from 'antd';
-import {ExpandOutlined, ReloadOutlined, ShrinkOutlined} from '@ant-design/icons';
+import {Button} from 'antd';
 import './MapViewer.css';
 
 const SVGMapViewer = ({
@@ -10,13 +9,10 @@ const SVGMapViewer = ({
                           mode = 'routes',
                           onRouteClick,
                           onShipmentClick,
-                          height = '500px',
-                          showControls = true,
-                          showLegend = true
+                          height = '100%',
+                          showLegend = true,
                       }) => {
     const svgRef = useRef(null);
-    const [isFullscreen, setIsFullscreen] = useState(false);
-    const [loading, setLoading] = useState(false);
     const [selectedRoute, setSelectedRoute] = useState(null);
     const [selectedShipment, setSelectedShipment] = useState(null);
 
@@ -407,163 +403,92 @@ const SVGMapViewer = ({
         }
     }, [mode, drawRoutes, drawShipments, drawMatchingResults, drawCities, getRequiredCities]);
 
-    // 切换全屏
-    const toggleFullscreen = () => {
-        setIsFullscreen(!isFullscreen);
-        setTimeout(() => {
-            drawSVGMap(); // 重新绘制以适应新尺寸
-        }, 100);
-    };
-
-    // 刷新地图
-    const handleReload = () => {
-        setLoading(true);
-        setTimeout(() => {
-            drawSVGMap();
-            setLoading(false);
-        }, 300);
-    };
-
-    // 初始化绘制
+    // 初始化及数据变化时重绘
     useEffect(() => {
-        const timer = setTimeout(() => {
-            drawSVGMap();
-        }, 100);
-
-        // 窗口大小改变时重新绘制
-        const handleResize = () => {
-            setTimeout(drawSVGMap, 100);
-        };
-
+        const timer = setTimeout(() => drawSVGMap(), 100);
+        const handleResize = () => setTimeout(drawSVGMap, 100);
         window.addEventListener('resize', handleResize);
-
         return () => {
             clearTimeout(timer);
             window.removeEventListener('resize', handleResize);
         };
     }, [drawSVGMap]);
 
-    // 数据变化时重新绘制
     useEffect(() => {
         drawSVGMap();
     }, [routes, shipments, matchings, mode, drawSVGMap]);
 
-    const svgEl = (
-        <svg
-            ref={svgRef}
-            className="svg-map"
-            style={{
-                width: '100%',
-                height: '100%',
-                background: '#EFF6FF',
-                display: 'block',
-            }}
-        />
-    );
-
-    // 无控制栏时直接返回裸 SVG（让父级 Card 控制尺寸）
-    if (!showControls) {
-        return (
-            <div style={{width: '100%', height: typeof height === 'number' ? height : parseInt(height, 10) || 320}}>
-                {svgEl}
-            </div>
-        );
-    }
-
+    // 渲染：只输出 SVG 容器，不包 Card
     return (
-        <div className={`map-viewer ${isFullscreen ? 'fullscreen' : ''}`}>
-            <Card
-                title={
-                    <div className="map-viewer-header">
-                        <span>SVG地图视图</span>
-                        <Space className="map-viewer-controls">
-                            <Button
-                                icon={<ReloadOutlined/>}
-                                onClick={handleReload}
-                                size="small"
-                                loading={loading}
-                            >
-                                刷新
-                            </Button>
-                            <Button
-                                icon={isFullscreen ? <ShrinkOutlined/> : <ExpandOutlined/>}
-                                onClick={toggleFullscreen}
-                                size="small"
-                            >
-                                {isFullscreen ? '退出全屏' : '全屏'}
-                            </Button>
-                        </Space>
-                    </div>
-                }
-                className="map-card"
-                style={{height: isFullscreen ? '100vh' : height}}
-            >
-                <div className="map-container">
-                    {svgEl}
+        <div style={{position: 'relative', width: '100%', height: height || '100%'}}>
+            <svg
+                ref={svgRef}
+                style={{width: '100%', height: '100%', background: '#EFF6FF', display: 'block'}}
+            />
 
-                    {showLegend && (
-                        <div className="map-legend">
-                            <div className="legend-title">图例</div>
-                            {mode === 'routes' && (
-                                <div className="legend-items">
-                                    <div className="legend-item">
-                                        <div className="legend-color" style={{background: '#1890ff'}}></div>
-                                        <span>运输路线</span>
-                                    </div>
+            {showLegend && (
+                <div className="map-legend">
+                    <div className="legend-title">图例</div>
+                    <div className="legend-items">
+                        {(mode === 'routes' || mode === 'matching') && (
+                            <div className="legend-item">
+                                <span className="legend-line" style={{borderColor: '#1890ff'}}/>
+                                <span>运输路线</span>
+                            </div>
+                        )}
+                        {mode === 'matching' && (
+                            <>
+                                <div className="legend-item">
+                                    <span className="legend-marker" style={{background: '#52c41a'}}/>
+                                    <span>已匹配</span>
                                 </div>
-                            )}
-                            {mode === 'shipments' && (
-                                <div className="legend-items">
-                                    <div className="legend-item">
-                                        <div className="legend-marker" style={{background: '#52c41a'}}></div>
-                                        <span>起点</span>
-                                    </div>
-                                    <div className="legend-item">
-                                        <div className="legend-marker" style={{background: '#f5222d'}}></div>
-                                        <span>终点</span>
-                                    </div>
+                                <div className="legend-item">
+                                    <span className="legend-marker" style={{background: '#f5222d'}}/>
+                                    <span>未匹配</span>
                                 </div>
-                            )}
-                            {mode === 'matching' && (
-                                <div className="legend-items">
-                                    <div className="legend-item">
-                                        <div className="legend-marker" style={{background: '#52c41a'}}></div>
-                                        <span>已匹配</span>
-                                    </div>
-                                    <div className="legend-item">
-                                        <div className="legend-marker" style={{background: '#f5222d'}}></div>
-                                        <span>未匹配</span>
-                                    </div>
+                            </>
+                        )}
+                        {mode === 'shipments' && (
+                            <>
+                                <div className="legend-item">
+                                    <span className="legend-marker" style={{background: '#52c41a'}}/>
+                                    <span>起点</span>
                                 </div>
-                            )}
+                                <div className="legend-item">
+                                    <span className="legend-marker" style={{background: '#f5222d'}}/>
+                                    <span>终点</span>
+                                </div>
+                            </>
+                        )}
+                        <div className="legend-item">
+                            <span className="legend-marker" style={{background: '#1890ff'}}/>
+                            <span>路线节点</span>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {(selectedRoute || selectedShipment) && (
+                <div className="map-legend" style={{top: 'auto', bottom: 16}}>
+                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6}}>
+                        <span style={{fontWeight: 600, fontSize: 12}}>选中信息</span>
+                        <Button type="text" size="small" style={{padding: 0, height: 'auto', fontSize: 11}}
+                            onClick={() => { setSelectedRoute(null); setSelectedShipment(null); }}>关闭</Button>
+                    </div>
+                    {selectedRoute && (
+                        <div style={{fontSize: 11, color: '#475569'}}>
+                            <div>路线 {selectedRoute.route_id}</div>
+                            <div>{selectedRoute.nodes?.join(' → ')}</div>
                         </div>
                     )}
-
-                    {(selectedRoute || selectedShipment) && (
-                        <div className="selection-info">
-                            <div className="info-header">
-                                <span>选中信息</span>
-                                <Button type="text" size="small" onClick={() => { setSelectedRoute(null); setSelectedShipment(null); }}>关闭</Button>
-                            </div>
-                            {selectedRoute && (
-                                <div className="info-content">
-                                    <p><strong>路线ID:</strong> {selectedRoute.id}</p>
-                                    <p><strong>节点数:</strong> {selectedRoute.nodes?.length || 0}</p>
-                                </div>
-                            )}
-                            {selectedShipment && (
-                                <div className="info-content">
-                                    <p><strong>货物ID:</strong> {selectedShipment.id}</p>
-                                    <p><strong>起点:</strong> {getCityInfo(selectedShipment.origin)?.name}</p>
-                                    <p><strong>终点:</strong> {getCityInfo(selectedShipment.destination)?.name}</p>
-                                    <p><strong>需求量:</strong> {selectedShipment.demand}</p>
-                                    <p><strong>状态:</strong> {selectedShipment.assigned_route ? '已分配' : '未分配'}</p>
-                                </div>
-                            )}
+                    {selectedShipment && (
+                        <div style={{fontSize: 11, color: '#475569'}}>
+                            <div>货物 {selectedShipment.shipment_id}</div>
+                            <div>{selectedShipment.origin_city} → {selectedShipment.destination_city}</div>
                         </div>
                     )}
                 </div>
-            </Card>
+            )}
         </div>
     );
 };

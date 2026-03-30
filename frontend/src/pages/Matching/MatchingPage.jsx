@@ -350,7 +350,7 @@ const MatchingPage = () => {
                 <Col span={12}>
                     <Card
                         title="匹配结果地图"
-                        styles={{body: {padding: 0}}}
+                        styles={{body: {padding: 0, height: 'calc(100% - 46px)'}}}
                         style={{height: '600px'}}
                     >
                         <MapViewer
