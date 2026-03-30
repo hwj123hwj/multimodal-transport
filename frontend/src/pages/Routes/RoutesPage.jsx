@@ -347,7 +347,7 @@ const RoutesPage = () => {
                             shipments={[]}
                             matchings={[]}
                             onRouteClick={handleRouteSelect}
-                            mapEngine="svg"
+                            mapEngine="baidu"
                             height="100%"
                         />
                     </Card>

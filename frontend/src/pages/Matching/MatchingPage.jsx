@@ -17,7 +17,7 @@ const MatchingPage = () => {
     const [matchTable, setMatchTable] = useState([]);
     const [loading, setLoading] = useState(false);
     const [selectedResult, setSelectedResult] = useState(null);
-    const [mapEngine] = useState('baidu');
+
     const [statistics, setStatistics] = useState({
         totalMatches: 0,
         matchedRoutes: 0,
@@ -362,7 +362,7 @@ const MatchingPage = () => {
                             }
                             shipments={selectedResult ? [selectedResult.shipment_info] : []}
                             onRouteClick={handleResultSelect}
-                            mapEngine={mapEngine}
+                            mapEngine="baidu"
                             height="100%"
                         />
                     </Card>
