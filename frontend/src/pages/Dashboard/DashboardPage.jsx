@@ -175,13 +175,12 @@ export const DashboardPage = () => {
             </Row>
 
             {/* Progress + Map + Table */}
-            <Row gutter={[12, 12]}>
+            <Row gutter={[12, 12]} style={{alignItems: 'stretch'}}>
                 {/* Left column */}
-                <Col xs={24} lg={14}>
+                <Col xs={24} lg={14} style={{display: 'flex', flexDirection: 'column', gap: 12}}>
                     {/* Match rate progress */}
                     <Card
                         title="整体匹配率"
-                        style={{marginBottom: 12}}
                         extra={
                             <span style={{
                                 fontFamily: 'var(--font-mono)', fontSize: 20,
@@ -212,27 +211,29 @@ export const DashboardPage = () => {
                         </div>
                     </Card>
 
-                    {/* Map */}
+                    {/* Map — flex:1 撑满左列剩余高度 */}
                     <Card
                         title="路线与货物分布"
-                        styles={{body: {padding: 0, height: 320, overflow: 'hidden'}}}
+                        style={{flex: 1, minHeight: 0}}
+                        styles={{body: {padding: 0, height: '100%', overflow: 'hidden'}}}
                     >
                         <MapViewer
                             mode="routes"
                             routes={routes}
                             shipments={shipments}
-                            height={320}
+                            height="100%"
                             showControls={false}
                             showLegend={false}
                         />
                     </Card>
                 </Col>
 
-                {/* Right column – recent matches table */}
-                <Col xs={24} lg={10}>
+                {/* Right column – recent matches table，stretch 对齐左列底部 */}
+                <Col xs={24} lg={10} style={{display: 'flex', flexDirection: 'column'}}>
                     <Card
                         title="最近匹配记录"
-                        style={{height: '100%'}}
+                        style={{flex: 1, display: 'flex', flexDirection: 'column'}}
+                        styles={{body: {flex: 1, overflow: 'auto', padding: '0 1px'}}}
                         extra={
                             <span style={{fontSize: 12, color: 'var(--text-muted)'}}>
                                 前 {recentMatches.length} 条
@@ -244,7 +245,7 @@ export const DashboardPage = () => {
                                 dataSource={recentMatches}
                                 pagination={false}
                                 size="small"
-                                scroll={{y: 460}}
+                                scroll={{y: 'max-content'}}
                                 style={{fontSize: 13}}
                             >
                                 <Column title="货物" dataIndex="shipmentName" key="ship" width={90}/>

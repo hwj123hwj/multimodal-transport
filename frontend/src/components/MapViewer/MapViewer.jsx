@@ -218,7 +218,7 @@ const BaiduMapViewer = ({
             <div
                 id="map-container"
                 ref={mapContainerRef}
-                style={{width: '100%', height: typeof height === 'number' ? height : parseInt(height, 10) || 320}}
+                style={{width: '100%', height: height || '100%'}}
             />
         );
     }
