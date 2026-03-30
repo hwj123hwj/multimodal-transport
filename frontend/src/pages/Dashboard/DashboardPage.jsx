@@ -9,7 +9,7 @@ import {
     InboxOutlined,
 } from '@ant-design/icons';
 import {matchingAPI, routesAPI, shipmentsAPI} from '../../services/api';
-import SVGMapViewer from '../../components/MapViewer/SVGMapViewer';
+import MapViewer from '../../components/MapViewer/MapViewer';
 
 const {Column} = Table;
 
@@ -217,8 +217,8 @@ export const DashboardPage = () => {
                         title="路线与货物分布"
                         styles={{body: {padding: 0, height: 320, overflow: 'hidden'}}}
                     >
-                        <SVGMapViewer
-                            mode="combined"
+                        <MapViewer
+                            mode="routes"
                             routes={routes}
                             shipments={shipments}
                             height={320}

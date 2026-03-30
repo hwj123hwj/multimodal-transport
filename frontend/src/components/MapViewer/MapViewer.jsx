@@ -212,6 +212,17 @@ const BaiduMapViewer = ({
         refreshMapData();
     };
 
+    // showControls=false 时只渲染裸容器，让父级 Card 控制高度
+    if (!showControls) {
+        return (
+            <div
+                id="map-container"
+                ref={mapContainerRef}
+                style={{width: '100%', height: typeof height === 'number' ? height : parseInt(height, 10) || 320}}
+            />
+        );
+    }
+
     return (
         <div className={`map-viewer ${isFullscreen ? 'fullscreen' : ''}`}>
             <Card
