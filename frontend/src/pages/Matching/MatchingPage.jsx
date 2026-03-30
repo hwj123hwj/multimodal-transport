@@ -1,12 +1,16 @@
 import React, {useEffect, useState} from 'react';
-import {Button, Card, Col, message, Row, Space, Statistic, Tag} from 'antd';
+import {Button, Card, Col, message, Row, Select, Space, Statistic, Tag} from 'antd';
 import {AimOutlined, CheckCircleOutlined} from '@ant-design/icons';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import MapViewer from '../../components/MapViewer/MapViewer';
 import DataTable from '../../components/DataTable/DataTable';
 import {matchingAPI} from '../../services/api';
+import api from '../../services/api';
 import {formatCurrency, formatDistance, formatTime} from '../../utils/formatters';
 import {MATCHING_STATUS} from '../../utils/constants';
+import useSceneSelector from '../../hooks/useSceneSelector';
+
+const {Option} = Select;
 
 const MatchingPage = () => {
     const [matchingResults, setMatchingResults] = useState([]);
@@ -21,24 +25,27 @@ const MatchingPage = () => {
         avgMatchScore: 0
     });
     const [categoryUtilization, setCategoryUtilization] = useState([]);
+    const {selectScenes, activeId, setActiveId, loadingScenes} = useSceneSelector(true); // 只显示有结果的场景
 
     // 获取匹配结果数据
-    const fetchMatchingResults = async () => {
+    const fetchMatchingResults = async (sceneId) => {
         try {
             setLoading(true);
+            let detailedMatchings = [];
+            let summaryData = {};
 
-            // 拦截器已解包 response.data，getDetailed 返回 {data:[]}
-            const detailedResponse = await matchingAPI.getDetailed();
-            const detailedMatchings = Array.isArray(detailedResponse?.data)
-                ? detailedResponse.data
-                : [];
-
-            setMatchingResults(detailedMatchings);
-            setMatchTable(detailedMatchings);
-
-            // getSummary 返回 {data:{...}}
-            const summaryResponse = await matchingAPI.getSummary();
-            const summaryData = summaryResponse?.data || {};
+            if (sceneId) {
+                // 按场景加载
+                const res = await api.get(`/scenes/${sceneId}/matchings`);
+                detailedMatchings = res?.data || [];
+                summaryData = res?.summary || {};
+            } else {
+                // 默认加载
+                const detailedResponse = await matchingAPI.getDetailed();
+                detailedMatchings = Array.isArray(detailedResponse?.data) ? detailedResponse.data : [];
+                const summaryResponse = await matchingAPI.getSummary();
+                summaryData = summaryResponse?.data || {};
+            }
 
             const stats = {
                 total_shipments: summaryData.total_shipments ?? detailedMatchings.length,
@@ -47,6 +54,9 @@ const MatchingPage = () => {
                 avgMatchScore: summaryData.avg_matching_rate ? (summaryData.avg_matching_rate * 100) : 0
             };
             setStatistics(stats);
+
+            setMatchingResults(detailedMatchings);
+            setMatchTable(detailedMatchings);
 
             if (summaryData.category_utilization_rates) {
                 const utilizationData = Object.entries(summaryData.category_utilization_rates).map(([category, rate]) => ({
@@ -111,10 +121,10 @@ const MatchingPage = () => {
         message.success('匹配结果导出成功');
     };
 
-    // 页面加载时获取数据
+    // 页面加载时获取数据，场景切换时重新加载
     useEffect(() => {
-        fetchMatchingResults();
-    }, []);
+        fetchMatchingResults(activeId);
+    }, [activeId]); // eslint-disable-line
 
     // 获取状态颜色
     const getStatusColor = (status) => {
@@ -248,6 +258,25 @@ const MatchingPage = () => {
 
     return (
         <div className="matching-page">
+            {/* 场景切换 */}
+            <Card style={{marginBottom: 16}}>
+                <Space>
+                    <span style={{fontSize: 13, color: '#64748B'}}>查看场景：</span>
+                    <Select
+                        placeholder="选择场景（仅显示已执行的场景）"
+                        value={activeId}
+                        onChange={setActiveId}
+                        style={{width: 240}}
+                        allowClear
+                        loading={loadingScenes}
+                    >
+                        {selectScenes.map(s => (
+                            <Option key={s.id} value={s.id}>{s.label}</Option>
+                        ))}
+                    </Select>
+                    <Button icon={<CheckCircleOutlined/>} onClick={() => fetchMatchingResults(activeId)} loading={loading}>刷新</Button>
+                </Space>
+            </Card>
             {/* 统计卡片 */}
             <Row gutter={16} style={{marginBottom: 24}}>
                 <Col xs={24} sm={12} md={6}>

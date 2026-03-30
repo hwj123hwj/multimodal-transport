@@ -436,3 +436,114 @@ def _xlsx_bytes_to_csv(data: bytes) -> bytes:
     buf = io.StringIO()
     csv.writer(buf).writerows(rows)
     return buf.getvalue().encode("utf-8")
+
+
+# ── 按场景读取原始数据 ─────────────────────────────────────────
+
+@router.get("/scenes/{scene_id}/shipments")
+async def get_scene_shipments(scene_id: str):
+    """读取指定场景的货物数据"""
+    scene = _get_scene(scene_id)
+    if not scene:
+        raise HTTPException(status_code=404, detail=f"场景不存在: {scene_id}")
+    scene_dir = SCENES_DIR / scene_id
+    shipment_file = scene_dir / "shipment.csv"
+    if not shipment_file.exists():
+        raise HTTPException(status_code=404, detail="货物数据文件不存在")
+    try:
+        from ..services import data_loader as _dl
+        col = _dl.load_shipments(str(shipment_file))
+        shipments = [s.to_dict() for s in col.shipments]
+        return {"status": "success", "data": {"shipments": shipments}, "scene_id": scene_id, "scene_label": scene["label"]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"读取货物数据失败: {e}")
+
+
+@router.get("/scenes/{scene_id}/routes")
+async def get_scene_routes(scene_id: str):
+    """读取指定场景的路线数据"""
+    scene = _get_scene(scene_id)
+    if not scene:
+        raise HTTPException(status_code=404, detail=f"场景不存在: {scene_id}")
+    scene_dir = SCENES_DIR / scene_id
+    route_file = scene_dir / "route.csv"
+    if not route_file.exists():
+        raise HTTPException(status_code=404, detail="路线数据文件不存在")
+    try:
+        from ..services import data_loader as _dl
+        col = _dl.load_routes(str(route_file))
+        routes = [r.to_dict() for r in col.routes]
+        return {"status": "success", "data": {"routes": routes}, "scene_id": scene_id, "scene_label": scene["label"]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"读取路线数据失败: {e}")
+
+
+@router.get("/scenes/{scene_id}/matchings")
+async def get_scene_matchings(scene_id: str):
+    """读取指定场景的匹配结果"""
+    scene = _get_scene(scene_id)
+    if not scene:
+        raise HTTPException(status_code=404, detail=f"场景不存在: {scene_id}")
+    result_file = RESULT_BASE / scene_id / "stable_matching.csv"
+    if not result_file.exists():
+        raise HTTPException(status_code=404, detail="该场景尚无匹配结果，请先执行算法")
+    try:
+        from ..services import data_loader as _dl, data_service as _ds, matching_service as _ms
+        # 加载该场景的输入数据用于 join
+        scene_dir = SCENES_DIR / scene_id
+        shipments_col = _dl.load_shipments(str(scene_dir / "shipment.csv"))
+        routes_col    = _dl.load_routes(str(scene_dir / "route.csv"))
+        shipment_map  = {s.shipment_id: s.to_dict() for s in shipments_col.shipments}
+        route_map     = {r.route_id:    r.to_dict() for r in routes_col.routes}
+
+        # 解析结果文件
+        summary = _parse_result(result_file)
+        matchings = []
+        with open(result_file, encoding="utf-8") as f:
+            rows = list(csv.reader(f))
+        shipment_ids = [int(v) for v in rows[0][1:] if v.strip().isdigit()]
+        route_vals   = [v.strip() for v in rows[1][1:len(shipment_ids)+1]]
+
+        for sid, rv in zip(shipment_ids, route_vals):
+            is_matched = rv != "Self" and rv != ""
+            route_id   = int(rv) if is_matched else None
+            s_info = shipment_map.get(sid, {})
+            r_info = route_map.get(route_id) if route_id else None
+            matchings.append({
+                "id": sid,
+                "shipment_id": sid,
+                "route_id": route_id,
+                "status": "matched" if is_matched else "unmatched",
+                "shipment_info": {
+                    "origin_city":            s_info.get("origin_city", "未知"),
+                    "destination_city":       s_info.get("destination_city", "未知"),
+                    "demand":                 s_info.get("demand", 0),
+                    "weight":                 s_info.get("weight", 0),
+                    "volume":                 s_info.get("volume", 0),
+                    "origin_longitude":       s_info.get("origin_longitude"),
+                    "origin_latitude":        s_info.get("origin_latitude"),
+                    "destination_longitude":  s_info.get("destination_longitude"),
+                    "destination_latitude":   s_info.get("destination_latitude"),
+                },
+                "route_info": {
+                    "nodes":            r_info.get("nodes", []) if r_info else [],
+                    "costs":            r_info.get("costs", []) if r_info else [],
+                    "travel_times":     r_info.get("travel_times", []) if r_info else [],
+                    "total_cost":       r_info.get("total_cost", 0) if r_info else 0,
+                    "total_travel_time":r_info.get("total_travel_time", 0) if r_info else 0,
+                    "capacity":         r_info.get("capacity", 0) if r_info else 0,
+                    "route_category":   r_info.get("route_category", "未知") if r_info else "未知",
+                } if r_info else None,
+            })
+
+        return {
+            "status": "success",
+            "data": matchings,
+            "summary": summary,
+            "scene_id": scene_id,
+            "scene_label": scene["label"],
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"读取匹配结果失败: {e}")

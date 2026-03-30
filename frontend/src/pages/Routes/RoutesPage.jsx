@@ -4,8 +4,10 @@ import {AimOutlined, ReloadOutlined} from '@ant-design/icons';
 import MapViewer from '../../components/MapViewer/MapViewer';
 import DataTable from '../../components/DataTable/DataTable';
 import {routesAPI} from '../../services/api';
+import api from '../../services/api';
 import {formatCurrency, formatDistance, formatTime} from '../../utils/formatters';
 import {ROUTE_COLORS} from '../../utils/constants';
+import useSceneSelector from '../../hooks/useSceneSelector';
 
 const {Option} = Select;
 
@@ -23,14 +25,20 @@ const RoutesPage = () => {
     });
     const [originSearch, setOriginSearch] = useState('');
     const [destinationSearch, setDestinationSearch] = useState('');
+    const {selectScenes, activeId, setActiveId, loadingScenes} = useSceneSelector(false);
 
     // 获取路线数据
-    const fetchRoutes = async () => {
+    const fetchRoutes = async (sceneId) => {
         try {
             setLoading(true);
-            const response = await routesAPI.getAll();
-            // 拦截器返回完整body {status, data}，后端返回 {status, data:{routes:[]}}
-            const data = response?.data?.routes || [];
+            let data = [];
+            if (sceneId) {
+                const response = await api.get(`/scenes/${sceneId}/routes`);
+                data = response?.data?.routes || [];
+            } else {
+                const response = await routesAPI.getAll();
+                data = response?.data?.routes || [];
+            }
 
             setRoutes(data);
 
@@ -124,10 +132,10 @@ const RoutesPage = () => {
     };
     */
 
-    // 页面加载时获取数据
+    // 页面加载时获取数据，场景切换时重新加载
     useEffect(() => {
-        fetchRoutes();
-    }, []);
+        fetchRoutes(activeId);
+    }, [activeId]); // eslint-disable-line
 
     // 表格列配置
     const columns = [
@@ -309,6 +317,19 @@ const RoutesPage = () => {
                     <h3 style={{margin: 0}}>路线管理</h3>
                     <Space>
                         <Select
+                            placeholder="切换场景"
+                            value={activeId}
+                            onChange={setActiveId}
+                            style={{width: 160}}
+                            size="small"
+                            loading={loadingScenes}
+                            allowClear
+                        >
+                            {selectScenes.map(s => (
+                                <Option key={s.id} value={s.id}>{s.label}</Option>
+                            ))}
+                        </Select>
+                        <Select
                             value={mapEngine}
                             onChange={handleMapEngineChange}
                             style={{width: 120}}
@@ -319,7 +340,7 @@ const RoutesPage = () => {
                         </Select>
                         <Button
                             icon={<ReloadOutlined/>}
-                            onClick={fetchRoutes}
+                            onClick={() => fetchRoutes(activeId)}
                             loading={loading}
                         >
                             刷新

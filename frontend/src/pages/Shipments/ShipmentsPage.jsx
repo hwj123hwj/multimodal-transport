@@ -1,11 +1,15 @@
 import React, {useEffect, useState} from 'react';
-import {Button, Card, Col, Input, message, Row, Space, Statistic, Table, Tag} from 'antd';
+import {Button, Card, Col, Input, message, Row, Select, Space, Statistic, Table, Tag} from 'antd';
 import {
     AppstoreOutlined, ColumnWidthOutlined,
     EnvironmentOutlined, ExportOutlined,
     InboxOutlined, ReloadOutlined, SearchOutlined,
 } from '@ant-design/icons';
 import {shipmentsAPI} from '../../services/api';
+import api from '../../services/api';
+import useSceneSelector from '../../hooks/useSceneSelector';
+
+const {Option} = Select;
 
 const ShipmentsPage = () => {
     const [shipments, setShipments]       = useState([]);
@@ -13,12 +17,19 @@ const ShipmentsPage = () => {
     const [originSearch, setOriginSearch] = useState('');
     const [destSearch, setDestSearch]     = useState('');
     const [stats, setStats] = useState({total: 0, totalDemand: 0, totalWeight: 0, totalVolume: 0});
+    const {selectScenes, activeId, setActiveId, loadingScenes} = useSceneSelector(false);
 
-    const fetchShipments = async () => {
+    const fetchShipments = async (sceneId) => {
         setLoading(true);
         try {
-            const response = await shipmentsAPI.getAll();
-            let data = response?.data?.shipments || [];
+            let data = [];
+            if (sceneId) {
+                const response = await api.get(`/scenes/${sceneId}/shipments`);
+                data = response?.data?.shipments || [];
+            } else {
+                const response = await shipmentsAPI.getAll();
+                data = response?.data?.shipments || [];
+            }
             if (!Array.isArray(data)) data = [];
 
             if (originSearch.trim())
@@ -61,7 +72,7 @@ const ShipmentsPage = () => {
         }
     };
 
-    useEffect(() => { fetchShipments(); }, [originSearch, destSearch]); // eslint-disable-line
+    useEffect(() => { fetchShipments(activeId); }, [activeId]); // eslint-disable-line
 
     const statCards = [
         {label: '总货物数', value: stats.total,                  suffix: undefined, prefix: <InboxOutlined/>,       color: '#1890ff'},
@@ -158,7 +169,20 @@ const ShipmentsPage = () => {
                             搜索
                         </Button>
                     </Col>
-                    <Col flex="auto"/>
+                    <Col>
+                        <Select
+                            placeholder="切换场景"
+                            value={activeId}
+                            onChange={id => { setActiveId(id); }}
+                            style={{width: 160}}
+                            allowClear
+                            loading={loadingScenes}
+                        >
+                            {selectScenes.map(s => (
+                                <Option key={s.id} value={s.id}>{s.label}</Option>
+                            ))}
+                        </Select>
+                    </Col>
                     <Col>
                         <Space>
                             <Button icon={<ReloadOutlined/>} onClick={fetchShipments} loading={loading}>刷新</Button>
