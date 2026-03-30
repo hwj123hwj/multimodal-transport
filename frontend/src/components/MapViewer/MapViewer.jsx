@@ -17,12 +17,11 @@ const BaiduMapViewer = ({
                             onRouteClick,
                             onShipmentClick,
                             height = '500px',
-                            showControls = true,
-                            showLegend = true
+                            showLegend = true,
+                            onControlsChange, // (controls: ReactNode) => void
                         }) => {
     const mapContainerRef = useRef(null);
     const mapServiceRef = useRef(null);
-    const [isFullscreen, setIsFullscreen] = useState(false);
     const [mapType, setMapType] = useState('normal');
     const [loading, setLoading] = useState(false);
 
@@ -180,9 +179,8 @@ const BaiduMapViewer = ({
         }
     }, [routes, shipments, matchings, mode, refreshMapData]);
 
-    // 切换全屏
+    // 切换全屏（保留逻辑，供外部调用）
     const toggleFullscreen = () => { // eslint-disable-line no-unused-vars
-        setIsFullscreen(!isFullscreen);
         setTimeout(() => {
             if (mapServiceRef.current) {
                 mapServiceRef.current.map.checkResize();
@@ -207,94 +205,49 @@ const BaiduMapViewer = ({
         }
     };
 
-    // 重新加载地图
-    const handleReload = () => {
-        refreshMapData();
-    };
+    // 把控制栏节点通过回调暴露给父组件
+    useEffect(() => {
+        if (!onControlsChange) return;
+        onControlsChange(
+            <Space size="small">
+                <Select value={mapType} onChange={handleMapTypeChange} style={{width: 90}} size="small">
+                    <Option value="normal">普通</Option>
+                    <Option value="satellite">卫星</Option>
+                    <Option value="hybrid">混合</Option>
+                </Select>
+                <Button icon={<ReloadOutlined/>} onClick={refreshMapData} size="small" loading={loading}>
+                    刷新
+                </Button>
+            </Space>
+        );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [mapType, loading, onControlsChange]);
 
-    // showControls=false 时只渲染裸容器，让父级 Card 控制高度
-    if (!showControls) {
-        return (
+    // 只渲染地图容器，不包 Card
+    return (
+        <div style={{position: 'relative', width: '100%', height: height || '100%'}}>
             <div
                 id="map-container"
                 ref={mapContainerRef}
-                style={{width: '100%', height: height || '100%'}}
+                style={{width: '100%', height: '100%'}}
             />
-        );
-    }
-
-    return (
-        <div className={`map-viewer ${isFullscreen ? 'fullscreen' : ''}`}>
-            <Card
-                title={
-                    <div className="map-viewer-header">
-                        <span>地图视图</span>
-                        {showControls && (
-                            <Space className="map-viewer-controls">
-                                <Select
-                                    value={mapType}
-                                    onChange={handleMapTypeChange}
-                                    style={{width: 100}}
-                                    size="small"
-                                >
-                                    <Option value="normal">普通地图</Option>
-                                    <Option value="satellite">卫星地图</Option>
-                                    <Option value="hybrid">混合地图</Option>
-                                </Select>
-                                <Button
-                                    icon={<ReloadOutlined/>}
-                                    onClick={handleReload}
-                                    size="small"
-                                    loading={loading}
-                                >
-                                    刷新
-                                </Button>
-                            </Space>
+            {showLegend && (
+                <div className="map-legend">
+                    <div className="legend-title">图例</div>
+                    <div className="legend-items">
+                        {(mode === 'routes' || mode === 'matching') && (
+                            <div className="legend-item">
+                                <span className="legend-line" style={{borderColor: '#1890ff'}}/>
+                                <span>运输路线</span>
+                            </div>
                         )}
-                    </div>
-                }
-                className="map-viewer-card"
-                style={{height: isFullscreen ? '100vh' : height}}
-            >
-                <div
-                    id="map-container"
-                    ref={mapContainerRef}
-                    className="map-container"
-                    style={{height: '100%'}}
-                />
-
-                {showLegend && (
-                    <div className="map-legend">
-                        <div className="legend-title">图例</div>
-                        <div className="legend-items">
-                            {mode === 'matching' && (
-                                <>
-                                    <div className="legend-item">
-                                        <span className="legend-line" style={{borderColor: '#1890ff'}}></span>
-                                        <span>运输路线</span>
-                                    </div>
-                                    <div className="legend-item">
-                                        <span className="legend-marker"></span>
-                                        <span>路线节点</span>
-                                    </div>
-                                </>
-                            )}
-                            {mode === 'routes' && (
-                                <div className="legend-item">
-                                    <span className="legend-line" style={{borderColor: '#1890ff'}}></span>
-                                    <span>运输路线</span>
-                                </div>
-                            )}
-                            {mode === 'shipments' && (
-                                <div className="legend-item">
-                                    <span className="legend-marker"></span>
-                                    <span>路线节点</span>
-                                </div>
-                            )}
+                        <div className="legend-item">
+                            <span className="legend-marker"/>
+                            <span>路线节点</span>
                         </div>
                     </div>
-                )}
-            </Card>
+                </div>
+            )}
         </div>
     );
 };
@@ -306,17 +259,15 @@ const MapViewer = ({
                        matchings = [],
                        mode = 'routes',
                        onRouteClick,
-                       onRouteSelect, // 兼容旧属性名
+                       onRouteSelect,
                        onShipmentClick,
                        height = '500px',
-                       showControls = true,
                        showLegend = true,
-                       mapEngine = 'baidu' // 'baidu' 或 'svg'
+                       mapEngine = 'baidu',
+                       onControlsChange, // 把地图内部控制栏节点传出给父组件的 Card extra
                    }) => {
-    // 处理兼容性：如果传入了 onRouteSelect 但没有 onRouteClick，则使用 onRouteSelect
     const handleRouteClick = onRouteClick || onRouteSelect;
 
-    // 如果是SVG地图，直接返回SVG组件
     if (mapEngine === 'svg') {
         return (
             <SVGMapViewer
@@ -327,13 +278,11 @@ const MapViewer = ({
                 onRouteClick={handleRouteClick}
                 onShipmentClick={onShipmentClick}
                 height={height}
-                showControls={showControls}
                 showLegend={showLegend}
             />
         );
     }
 
-    // 否则返回百度地图组件
     return (
         <BaiduMapViewer
             routes={routes}
@@ -343,8 +292,8 @@ const MapViewer = ({
             onRouteClick={handleRouteClick}
             onShipmentClick={onShipmentClick}
             height={height}
-            showControls={showControls}
             showLegend={showLegend}
+            onControlsChange={onControlsChange}
         />
     );
 };

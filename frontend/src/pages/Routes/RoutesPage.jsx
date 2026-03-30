@@ -26,6 +26,7 @@ const RoutesPage = () => {
     const [originSearch, setOriginSearch] = useState('');
     const [destinationSearch, setDestinationSearch] = useState('');
     const {selectScenes, activeId, setActiveId, loadingScenes} = useSceneSelector(false);
+    const [mapControls, setMapControls] = useState(null); // 由 MapViewer 传出的控制栏节点
 
     // 获取路线数据
     const fetchRoutes = async (sceneId) => {
@@ -100,7 +101,6 @@ const RoutesPage = () => {
     // 切换地图引擎
     const handleMapEngineChange = (engine) => {
         setMapEngine(engine);
-        message.info(`已切换到${engine === 'baidu' ? '百度地图' : 'SVG地图'}`);
     };
 
     // 处理数据导出
@@ -354,17 +354,32 @@ const RoutesPage = () => {
                 <Col span={12}>
                     <Card
                         title="路线地图"
-                        styles={{body: {padding: 0}}}
+                        extra={
+                            <Space size="small">
+                                <Select
+                                    value={mapEngine}
+                                    onChange={handleMapEngineChange}
+                                    style={{width: 80}}
+                                    size="small"
+                                >
+                                    <Option value="baidu">百度</Option>
+                                    <Option value="svg">SVG</Option>
+                                </Select>
+                                {mapControls}
+                            </Space>
+                        }
+                        styles={{body: {padding: 0, height: 'calc(100% - 46px)'}}}
                         style={{height: '600px'}}
                     >
                         <MapViewer
                             mode={mapMode}
                             routes={selectedRoute ? [selectedRoute] : routes}
-                            shipments={[]}  // 添加缺失的属性
-                            matchings={[]}  // 添加缺失的属性
-                            onRouteClick={handleRouteSelect} // 使用正确的属性名
+                            shipments={[]}
+                            matchings={[]}
+                            onRouteClick={handleRouteSelect}
                             mapEngine={mapEngine}
                             height="100%"
+                            onControlsChange={setMapControls}
                         />
                     </Card>
                 </Col>
