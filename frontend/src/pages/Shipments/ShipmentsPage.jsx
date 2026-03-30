@@ -1,12 +1,13 @@
 import React, {useEffect, useState} from 'react';
 import {
     Button, Card, Col, Descriptions, Drawer,
-    Input, message, Row, Space, Table, Tag
+    Input, message, Row, Space, Statistic, Table, Tag
 } from 'antd';
 import {
     ExportOutlined, EyeOutlined,
-    InboxOutlined, ReloadOutlined, SearchOutlined,
-    EnvironmentOutlined, ColumnWidthOutlined,
+    ReloadOutlined, SearchOutlined,
+    InboxOutlined, ColumnWidthOutlined,
+    EnvironmentOutlined, AppstoreOutlined,
 } from '@ant-design/icons';
 import {shipmentsAPI} from '../../services/api';
 
@@ -70,38 +71,10 @@ const ShipmentsPage = () => {
 
     // ── 统计卡配置 ──────────────────────────────────────────────
     const statCards = [
-        {
-            label: '总货物数',
-            value: stats.total,
-            unit:  '票',
-            color: '#2563EB',
-            bg:    '#EFF6FF',
-            icon:  <InboxOutlined/>,
-        },
-        {
-            label: '总需求量',
-            value: stats.totalDemand,
-            unit:  'TEU',
-            color: '#D97706',
-            bg:    '#FFFBEB',
-            icon:  <ColumnWidthOutlined/>,
-        },
-        {
-            label: '总重量',
-            value: stats.totalWeight.toFixed(0),
-            unit:  'kg',
-            color: '#059669',
-            bg:    '#ECFDF5',
-            icon:  <InboxOutlined/>,
-        },
-        {
-            label: '总体积',
-            value: stats.totalVolume.toFixed(0),
-            unit:  'm³',
-            color: '#7C3AED',
-            bg:    '#F5F3FF',
-            icon:  <EnvironmentOutlined/>,
-        },
+        {label: '总货物数',   value: stats.total,                  suffix: undefined, prefix: <InboxOutlined/>,       color: '#1890ff'},
+        {label: '总需求量',   value: stats.totalDemand,            suffix: 'TEU',     prefix: <ColumnWidthOutlined/>, color: '#fa8c16'},
+        {label: '总重量',     value: stats.totalWeight.toFixed(0), suffix: 'kg',      prefix: <AppstoreOutlined/>,    color: '#52c41a'},
+        {label: '总体积',     value: stats.totalVolume.toFixed(0), suffix: 'm³',      prefix: <EnvironmentOutlined/>, color: '#722ed1'},
     ];
 
     // ── 表格列 ──────────────────────────────────────────────────
@@ -184,7 +157,7 @@ const ShipmentsPage = () => {
     return (
         <div>
             {/* 搜索栏 */}
-            <Card style={{marginBottom: 12}}>
+            <Card style={{marginBottom: 24}}>
                 <Row gutter={12} align="middle" wrap={false}>
                     <Col>
                         <Input
@@ -223,35 +196,18 @@ const ShipmentsPage = () => {
                 </Row>
             </Card>
 
-            {/* 统计卡 — 横向紧凑布局 */}
-            <Row gutter={12} style={{marginBottom: 12}}>
+            {/* 统计卡 */}
+            <Row gutter={16} style={{marginBottom: 24}}>
                 {statCards.map(card => (
-                    <Col key={card.label} xs={12} sm={12} lg={6}>
-                        <Card style={{background: card.bg, border: `1px solid ${card.color}20`}}>
-                            <div style={{display: 'flex', alignItems: 'center', gap: 12}}>
-                                <div style={{
-                                    width: 40, height: 40, borderRadius: '50%',
-                                    background: `${card.color}15`,
-                                    border: `1.5px solid ${card.color}30`,
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    fontSize: 18, color: card.color, flexShrink: 0,
-                                }}>
-                                    {card.icon}
-                                </div>
-                                <div>
-                                    <div style={{fontSize: 12, color: '#64748B', marginBottom: 2}}>{card.label}</div>
-                                    <div style={{
-                                        fontSize: 22, fontWeight: 800,
-                                        fontFamily: 'var(--font-mono)',
-                                        color: card.color, lineHeight: 1,
-                                    }}>
-                                        {card.value}
-                                        <span style={{fontSize: 12, fontWeight: 400, marginLeft: 4, color: '#94A3B8'}}>
-                                            {card.unit}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
+                    <Col key={card.label} xs={24} sm={12} md={6}>
+                        <Card>
+                            <Statistic
+                                title={card.label}
+                                value={card.value}
+                                suffix={card.suffix}
+                                prefix={card.prefix}
+                                valueStyle={{color: card.color}}
+                            />
                         </Card>
                     </Col>
                 ))}
