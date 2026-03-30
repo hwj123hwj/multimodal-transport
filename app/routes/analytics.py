@@ -164,22 +164,23 @@ async def get_algorithm_quality():
         if not matchings:
             return {"status": "success", "data": {}}
 
+        # to_dict() 所有字段都在顶层，没有嵌套 statistics 键
         m = matchings[0]
-        stats = m.get("statistics", {})
 
         return {
             "status": "success",
             "data": {
-                "is_stable":             stats.get("is_stable", False),
-                "iteration_num":         stats.get("iteration_num", 0),
-                "restart_num":           stats.get("restart_num", 0),
-                "cpu_time":              stats.get("cpu_time", 0),
+                "is_stable":             m.get("is_stable", False),
+                "iteration_num":         m.get("iteration_num", 0),
+                "restart_num":           m.get("restart_num", 0),
+                "cpu_time":              m.get("cpu_time", 0),
+                # matching_rate 在 to_dict() 里是 0~1 小数，乘 100 转百分比
                 "matching_rate":         round(m.get("matching_rate", 0) * 100, 2),
-                "total_shipments":       stats.get("total_shipments", 0),
-                "matched_shipments":     stats.get("matched_shipments", 0),
-                "total_route_capacity":  stats.get("total_route_capacity", 0),
-                "total_container_num":   stats.get("total_container_num", 0),
-                "matched_container_num": stats.get("matched_container_num", 0),
+                "total_shipments":       m.get("total_shipments", 0),
+                "matched_shipments":     m.get("matched_shipments", 0),
+                "total_route_capacity":  m.get("total_capacity", 0),
+                "total_container_num":   m.get("total_container_number", 0),
+                "matched_container_num": m.get("total_matched_container_number", 0),
             }
         }
     except Exception as e:
