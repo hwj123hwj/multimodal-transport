@@ -185,4 +185,11 @@ export const executeAlgorithmAPI = {
     },
 };
 
+export const analyticsAPI = {
+    routeUtilization: () => api.get('/analytics/route-utilization'),
+    odFlow:           () => api.get('/analytics/od-flow'),
+    timeValue:        () => api.get('/analytics/time-value'),
+    algorithmQuality: () => api.get('/analytics/algorithm-quality'),
+};
+
 export default api;

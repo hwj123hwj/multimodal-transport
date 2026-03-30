@@ -7,6 +7,7 @@ import RoutesPage from './pages/Routes/RoutesPage';
 import ShipmentsPage from './pages/Shipments/ShipmentsPage';
 import MatchingPage from './pages/Matching/MatchingPage';
 import DataUploadPage from './pages/DataUpload/DataUploadPage';
+import AnalyticsPage from './pages/Analytics/AnalyticsPage';
 import './App.css';
 
 // ── Icons (inline SVG, no emoji) ────────────────────────────
@@ -40,6 +41,12 @@ const IconUpload = () => (
         <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
     </svg>
 );
+const IconAnalytics = () => (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/>
+        <line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/>
+    </svg>
+);
 const IconChevronLeft = () => (
     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <polyline points="15 18 9 12 15 6"/>
@@ -58,6 +65,7 @@ const NAV_ITEMS = [
     {key: 'shipments', label: '货物管理', icon: <IconShipments/>},
     {key: 'matching',  label: '匹配结果', icon: <IconMatching/>},
     {key: 'data-upload', label: '数据上传', icon: <IconUpload/>},
+    {key: 'analytics',   label: '数据分析', icon: <IconAnalytics/>},
 ];
 
 const PAGE_TITLES = {
@@ -66,6 +74,7 @@ const PAGE_TITLES = {
     shipments:    '货物管理',
     matching:     '匹配结果',
     'data-upload': '数据上传与算法执行',
+    'analytics':   '数据分析',
 };
 
 // ── Sidebar ──────────────────────────────────────────────────
@@ -144,6 +153,7 @@ const AppShell = () => {
                         <Route path="/shipments"   element={<ShipmentsPage/>}/>
                         <Route path="/matching"    element={<MatchingPage/>}/>
                         <Route path="/data-upload" element={<DataUploadPage/>}/>
+                        <Route path="/analytics"   element={<AnalyticsPage/>}/>
                     </Routes>
                 </main>
             </div>
