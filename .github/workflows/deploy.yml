@@ -24,12 +24,12 @@ jobs:
       - name: Build frontend
         working-directory: frontend
         env:
-          CI: false        # 不把warning当error，避免旧依赖警告中断构建
+          CI: false
         run: |
           npm ci
           npm run build
 
-      # ── 2. 配置 SSH，用于后续 rsync 和远程命令 ────────────────────
+      # ── 2. 配置 SSH ───────────────────────────────────────────────
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
@@ -37,7 +37,25 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
 
-      # ── 3. 用 rsync 同步代码和前端产物到服务器 ────────────────────
+      # ── 3. 检测哪些部分发生了变化 ─────────────────────────────────
+      - name: Detect changes
+        id: changes
+        run: |
+          git fetch origin main --depth=2
+          CHANGED=$(git diff --name-only HEAD~1 HEAD)
+          echo "$CHANGED"
+
+          # 后端相关文件变了才需要重建镜像
+          if echo "$CHANGED" | grep -qE '^(app/|app\.py|Dockerfile\.backend|requirements\.txt|docker-entrypoint\.sh|docker-compose\.yml|cmake-build-debug/)'; then
+            echo "backend=true" >> $GITHUB_OUTPUT
+          else
+            echo "backend=false" >> $GITHUB_OUTPUT
+          fi
+
+          # 前端静态文件（build产物）是否变化（只要运行了 npm run build 就有变化）
+          echo "frontend=true" >> $GITHUB_OUTPUT
+
+      # ── 4. 同步代码到服务器 ───────────────────────────────────────
       - name: Sync to server
         run: |
           rsync -az --delete \
@@ -48,28 +66,44 @@ jobs:
             -e "ssh -i ~/.ssh/deploy_key" \
             ./ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/opt/tms/
 
-      # ── 4. 服务器上重建并启动容器 ─────────────────────────────────
-      - name: Restart services
+      # ── 5a. 后端有变化：重建镜像并重启（利用 Docker 层缓存）────────
+      - name: Rebuild backend (if changed)
+        if: steps.changes.outputs.backend == 'true'
         run: |
           ssh -i ~/.ssh/deploy_key \
               ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'ENDSSH'
           set -e
           cd /opt/tms
 
-          docker compose down --remove-orphans
-          docker compose build --no-cache backend
-          docker compose up -d
+          # 利用层缓存重建（不加 --no-cache）
+          docker compose build backend
 
-          echo "等待服务启动..."
-          for i in $(seq 1 12); do
+          # 滚动重启：先起新容器再停旧容器，减少停机时间
+          docker compose up -d --no-deps backend
+
+          echo "等待后端就绪..."
+          for i in $(seq 1 10); do
             sleep 5
             STATUS=$(docker inspect tms_backend --format='{{.State.Health.Status}}' 2>/dev/null || echo "starting")
-            echo "[$i/12] 状态: $STATUS"
+            echo "[$i/10] 状态: $STATUS"
             if [ "$STATUS" = "healthy" ]; then
-              echo "服务已就绪"
+              echo "后端已就绪"
               break
             fi
           done
-
-          docker compose ps
           ENDSSH
+
+      # ── 5b. 只有前端变化：直接重载 nginx，零停机 ─────────────────
+      - name: Reload nginx (frontend only)
+        if: steps.changes.outputs.backend == 'false'
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+              ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
+              "cd /opt/tms && docker exec tms_nginx nginx -s reload"
+
+      # ── 6. 确认部署结果 ───────────────────────────────────────────
+      - name: Verify deployment
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+              ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
+              "cd /opt/tms && docker compose ps"

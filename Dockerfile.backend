@@ -13,23 +13,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf 
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 复制应用代码
+# 复制应用代码（变动最频繁，放在 pip install 之后）
 COPY app/ ./app/
 COPY app.py ./
-
-# 把初始数据放到 data_init 目录（启动时按需复制到 volume，不覆盖用户文件）
-COPY data/ ./data_init/
-
-# 复制 C++ 算法可执行文件
-COPY cmake-build-debug/stable_match.exe ./cmake-build-debug/
-RUN mkdir -p /app/cmake-build-debug/result
-
-# 如果已有匹配结果，一并复制
-COPY cmake-build-debug/result/ ./cmake-build-debug/result/
-
-# 启动脚本
 COPY docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh
+
+# 复制 C++ 算法可执行文件（不常变）
+COPY cmake-build-debug/stable_match.exe ./cmake-build-debug/
+RUN mkdir -p /app/cmake-build-debug/result
+COPY cmake-build-debug/result/ ./cmake-build-debug/result/
+
+# 初始数据（变动会让后续层缓存失效，放最后）
+COPY data/ ./data_init/
 
 EXPOSE 8000
 
