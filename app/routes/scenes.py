@@ -5,6 +5,7 @@ import asyncio
 import csv
 import json
 import logging
+import os
 import uuid
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
@@ -19,13 +20,15 @@ logger = logging.getLogger(__name__)
 _pool = ThreadPoolExecutor(max_workers=4)
 
 # ── 路径常量 ──────────────────────────────────────────────────
-DATA_DIR    = Path("/app/data") if Path("/app/data").exists() else Path("data")
+# 用 __file__ 锚定项目根目录，不依赖进程工作目录
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+
+_data_override = os.environ.get("DATA_DIR_OVERRIDE")
+DATA_DIR    = Path(_data_override) if _data_override else _PROJECT_ROOT / "data"
 SCENES_JSON = DATA_DIR / "scenes.json"
 SCENES_DIR  = DATA_DIR / "scenes"
-EXE_PATH    = Path("/app/cmake-build-debug/stable_match.exe") \
-              if Path("/app").exists() else Path("cmake-build-debug/stable_match.exe")
-RESULT_BASE = Path("/app/cmake-build-debug/result") \
-              if Path("/app").exists() else Path("cmake-build-debug/result")
+EXE_PATH    = _PROJECT_ROOT / "cmake-build-debug" / "stable_match.exe"
+RESULT_BASE = _PROJECT_ROOT / "cmake-build-debug" / "result"
 
 # ── 任务状态 ─────────────────────────────────────────────────
 _tasks: Dict[str, Dict] = {}   # task_id -> task info
