@@ -107,7 +107,7 @@ const DataUploadPage = () => {
             loadScenes();
         }
     }, [scenes, loadScenes]);
-    const hasRunningScenes = scenes.some(s => s.task_status === 'running');
+    const hasRunningScenes = scenes.some(s => s.task_status === 'running' || s.task_status === 'queued');
     usePolling(pollScenes, 3000, hasRunningScenes);
 
     // 计时器
@@ -236,7 +236,9 @@ const DataUploadPage = () => {
 
     const sceneStatusTag = (s) => {
         const ts = sceneTaskMap[s.id]?.status || s.task_status || s.status;
+        const pos = sceneTaskMap[s.id]?.queue_position ?? s.queue_position;
         if (ts === 'running') return <Tag icon={<SyncOutlined spin/>} color="processing">运行中</Tag>;
+        if (ts === 'queued')  return <Tag icon={<ClockCircleOutlined/>} color="warning">排队中{pos != null ? `(第${pos})` : ''}</Tag>;
         if (ts === 'done')    return <Tag icon={<CheckCircleOutlined/>} color="success">已完成</Tag>;
         if (ts === 'failed')  return <Tag icon={<ExclamationCircleOutlined/>} color="error">失败</Tag>;
         return <Tag color="default">待执行</Tag>;
@@ -455,9 +457,9 @@ const DataUploadPage = () => {
                         extra={
                             <Space>
                                 <Button icon={<ReloadOutlined/>} onClick={loadScenes} loading={scenesLoading} size="small">刷新</Button>
-                                <Tooltip title="最多同时运行 3 个，超出部分需等待完成后再次提交">
+                                <Tooltip title="所有场景加入串行队列，逐个执行，避免服务器过载">
                                     <Button type="primary" icon={<PlayCircleOutlined/>} onClick={handleRunAll} size="small">
-                                        批量执行（最多3个）
+                                        批量执行全部场景
                                     </Button>
                                 </Tooltip>
                             </Space>

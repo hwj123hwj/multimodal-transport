@@ -18,8 +18,11 @@ from pydantic import BaseModel
 
 router = APIRouter(prefix="/api", tags=["scenes"])
 logger = logging.getLogger(__name__)
-_pool = ThreadPoolExecutor(max_workers=3)
-MAX_CONCURRENT = 3  # 最多同时运行的算法任务数
+_pool = ThreadPoolExecutor(max_workers=1)  # 串行：一次只跑一个算法进程
+
+# 串行任务队列：存放待执行的 (task_id, scene_id, algo_params)
+_queue: list = []
+_queue_running = False  # 当前是否有任务在跑
 
 # ── 路径常量 ──────────────────────────────────────────────────
 # 用 __file__ 锚定项目根目录，不依赖进程工作目录
@@ -110,12 +113,14 @@ def _parse_result(result_csv: Path) -> Optional[Dict]:
 
 
 def _run_scene(task_id: str, scene_id: str, algo_params: Optional[Dict] = None):
-    """在线程池中执行算法"""
+    """在线程池中串行执行算法，完成后自动拉取队列下一个"""
+    global _queue_running
     import subprocess, time
     task = _tasks[task_id]
     scene = _get_scene(scene_id)
     if not scene:
         task.update(status="failed", error="场景不存在", finished_at=datetime.now().isoformat())
+        _dispatch_next()
         return
 
     scene_dir   = SCENES_DIR / scene_id
@@ -125,10 +130,10 @@ def _run_scene(task_id: str, scene_id: str, algo_params: Optional[Dict] = None):
 
     # 算法参数默认值
     p = algo_params or {}
-    max_prefer  = str(int(p.get("max_prefer_list",  1000000)))
-    max_iter    = str(int(p.get("max_iter",         2000)))
-    max_incomplete = str(int(p.get("max_incomplete", 200)))
-    prob_walk   = str(float(p.get("prob_random_walk", 0.5)))
+    max_prefer     = str(int(p.get("max_prefer_list",  1000000)))
+    max_iter       = str(int(p.get("max_iter",         2000)))
+    max_incomplete = str(int(p.get("max_incomplete",   200)))
+    prob_walk      = str(float(p.get("prob_random_walk", 0.5)))
 
     try:
         _update_scene(scene_id, status="running")
@@ -164,6 +169,23 @@ def _run_scene(task_id: str, scene_id: str, algo_params: Optional[Dict] = None):
         task.update(status="failed", error=str(e), finished_at=datetime.now().isoformat())
         _update_scene(scene_id, status="failed")
         logger.error(f"场景 {scene_id} 执行失败: {e}")
+    finally:
+        _dispatch_next()  # 无论成功失败，都拉取下一个
+
+
+def _dispatch_next():
+    """从队列里取下一个任务提交到线程池"""
+    global _queue_running
+    if not _queue:
+        _queue_running = False
+        return
+    next_task_id, next_scene_id, next_params = _queue.pop(0)
+    # 更新任务状态为 running（之前是 queued）
+    if next_task_id in _tasks:
+        _tasks[next_task_id]["status"] = "running"
+        _tasks[next_task_id]["started_at"] = datetime.now().isoformat()
+    _queue_running = True
+    _pool.submit(_run_scene, next_task_id, next_scene_id, next_params)
 
 
 # ── 场景列表 ──────────────────────────────────────────────────
@@ -194,7 +216,8 @@ class AlgoParams(BaseModel):
 
 @router.post("/scenes/{scene_id}/run")
 async def run_scene(scene_id: str, params: AlgoParams = AlgoParams()):
-    """提交单个场景算法任务，可选算法参数"""
+    """将场景加入串行执行队列"""
+    global _queue_running
     scene = _get_scene(scene_id)
     if not scene:
         raise HTTPException(status_code=404, detail=f"场景不存在: {scene_id}")
@@ -202,23 +225,39 @@ async def run_scene(scene_id: str, params: AlgoParams = AlgoParams()):
     if not (scene_dir / "route.csv").exists():
         raise HTTPException(status_code=400, detail="场景数据文件不完整")
 
-    running_count = sum(1 for t in _tasks.values() if t["status"] == "running")
-    if running_count >= MAX_CONCURRENT:
-        raise HTTPException(status_code=429, detail=f"当前已有 {running_count} 个任务在运行，最多允许 {MAX_CONCURRENT} 个并发，请等待完成后再提交")
+    # 若已在队列或正在运行，拒绝重复提交
+    queued_scene_ids = [item[1] for item in _queue]
+    running = next((t for t in _tasks.values() if t["scene_id"] == scene_id and t["status"] in ("running", "queued")), None)
+    if running or scene_id in queued_scene_ids:
+        raise HTTPException(status_code=409, detail="该场景已在队列中或正在运行")
 
     task_id = str(uuid.uuid4())
+    position = len(_queue) + (1 if _queue_running else 0)
+    # 如果当前有任务在跑，先标记为 queued
+    initial_status = "queued" if _queue_running else "running"
     _tasks[task_id] = {
         "task_id": task_id, "scene_id": scene_id,
-        "status": "running", "started_at": datetime.now().isoformat(),
+        "status": initial_status, "started_at": None,
         "finished_at": None, "result": None, "error": None,
+        "queue_position": position,
     }
     _scene_tasks[scene_id] = task_id
 
-    loop = asyncio.get_event_loop()
-    loop.run_in_executor(_pool, _run_scene, task_id, scene_id, params.model_dump())
+    if not _queue_running:
+        # 队列空闲，直接跑
+        _queue_running = True
+        _tasks[task_id]["status"] = "running"
+        _tasks[task_id]["started_at"] = datetime.now().isoformat()
+        _pool.submit(_run_scene, task_id, scene_id, params.model_dump())
+    else:
+        # 加入队列等待
+        _queue.append((task_id, scene_id, params.model_dump()))
 
-    return {"status": "accepted", "task_id": task_id, "scene_id": scene_id}
-
+    return {
+        "status": "accepted", "task_id": task_id, "scene_id": scene_id,
+        "queue_position": position,
+        "message": "开始执行" if position == 0 else f"已加入队列，前面还有 {position} 个任务"
+    }
 
 @router.get("/scenes/{scene_id}/status")
 async def scene_status(scene_id: str):
@@ -236,40 +275,43 @@ async def scene_status(scene_id: str):
 
 @router.post("/scenes/run-all")
 async def run_all_scenes():
-    """批量提交所有 ready 场景，最多同时运行 MAX_CONCURRENT 个"""
+    """将所有未完成场景加入串行队列，逐个执行"""
+    global _queue_running
     scenes = _load_scenes()
-
-    # 当前已在运行的任务数
-    running_count = sum(1 for t in _tasks.values() if t["status"] == "running")
-    slots = MAX_CONCURRENT - running_count
-    if slots <= 0:
-        return {"status": "rejected", "message": f"已有 {running_count} 个任务在运行，最多允许 {MAX_CONCURRENT} 个并发", "count": 0}
+    queued_scene_ids = {item[1] for item in _queue}
+    running_scene_ids = {t["scene_id"] for t in _tasks.values() if t["status"] in ("running", "queued")}
 
     submitted = []
     for s in scenes:
-        if len(submitted) >= slots:
-            break
-        if s.get("status") == "running":
-            continue
-        task_id = str(uuid.uuid4())
         sid = s["id"]
+        if sid in running_scene_ids or sid in queued_scene_ids:
+            continue  # 跳过已在队列/运行中的
+        task_id = str(uuid.uuid4())
+        position = len(_queue) + (1 if _queue_running else 0) + len(submitted)
+        initial_status = "running" if not _queue_running and not submitted else "queued"
         _tasks[task_id] = {
             "task_id": task_id, "scene_id": sid,
-            "status": "running", "started_at": datetime.now().isoformat(),
+            "status": initial_status, "started_at": None,
             "finished_at": None, "result": None, "error": None,
+            "queue_position": position,
         }
         _scene_tasks[sid] = task_id
-        loop = asyncio.get_event_loop()
-        loop.run_in_executor(_pool, _run_scene, task_id, sid)
+
+        if not _queue_running and not submitted:
+            # 第一个直接跑
+            _queue_running = True
+            _tasks[task_id]["status"] = "running"
+            _tasks[task_id]["started_at"] = datetime.now().isoformat()
+            _pool.submit(_run_scene, task_id, sid, None)
+        else:
+            _queue.append((task_id, sid, None))
         submitted.append(sid)
 
-    skipped = len([s for s in scenes if s["id"] not in submitted and s.get("status") != "running"])
     return {
         "status": "accepted",
         "submitted": submitted,
         "count": len(submitted),
-        "skipped": skipped,
-        "message": f"已提交 {len(submitted)} 个，{'还有 ' + str(skipped) + ' 个待后续执行' if skipped else '全部已提交'}"
+        "message": f"已加入队列 {len(submitted)} 个场景，串行逐个执行" if submitted else "没有需要执行的场景"
     }
 
 
