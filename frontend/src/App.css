@@ -371,13 +371,8 @@ body {
   transition: all var(--duration) var(--ease) !important;
 }
 
-.ant-btn-primary {
-  background: var(--primary) !important;
-  border-color: var(--primary) !important;
-}
-.ant-btn-primary:hover {
-  background: var(--primary-light) !important;
-  border-color: var(--primary-light) !important;
+/* primary 颜色由 ConfigProvider token 控制，不在此覆盖 */
+.ant-btn-primary:not(:disabled):not(.ant-btn-dangerous):hover {
   box-shadow: 0 4px 12px rgba(37,99,235,0.3) !important;
   transform: translateY(-1px);
 }
