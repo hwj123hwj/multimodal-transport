@@ -9,29 +9,14 @@ const api = axios.create({
     headers: {
         'Content-Type': 'application/json',
     },
-    paramsSerializer: {
-        encode: (params) => {
-            return Object.keys(params).map(key => {
-                return encodeURIComponent(key) + '=' + encodeURIComponent(params[key]);
-            }).join('&');
-        }
-    }
 });
 
-// 文件上传专用API实例
 const uploadApi = axios.create({
     baseURL: API_BASE_URL,
-    timeout: 30000, // 30秒超时，适合大文件上传
+    timeout: 30000,
     headers: {
         'Content-Type': 'multipart/form-data',
     },
-    paramsSerializer: {
-        encode: (params) => {
-            return Object.keys(params).map(key => {
-                return encodeURIComponent(key) + '=' + encodeURIComponent(params[key]);
-            }).join('&');
-        }
-    }
 });
 
 // 请求拦截器
