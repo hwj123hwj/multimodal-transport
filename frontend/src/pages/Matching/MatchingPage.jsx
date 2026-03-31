@@ -37,8 +37,8 @@ const MatchingPage = () => {
             if (sceneId) {
                 // 按场景加载
                 const res = await api.get(`/scenes/${sceneId}/matchings`);
-                detailedMatchings = res?.data?.data || [];
-                summaryData = res?.data?.summary || {};
+                detailedMatchings = res?.data || [];
+                summaryData = res?.summary || {};
             } else {
                 // 默认加载
                 const detailedResponse = await matchingAPI.getDetailed();
