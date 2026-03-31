@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {Alert, Button, Card, Checkbox, Col, Empty, Row, Spin, Statistic, Table, Tag, Tooltip} from 'antd';
 import {
     BarChart, Bar, CartesianGrid, Cell,
@@ -54,6 +54,24 @@ const ComparePage = () => {
         const all = compare.map(r => r.scene_id);
         return PALETTE[all.indexOf(id) % PALETTE.length];
     };
+
+    // ── 路线分流量对比数据 ────────────────────────────────────
+    // 格式：[{route: '1', 场景A: 5, 场景B: 7, ...}, ...]
+    const routeDistData = useMemo(() => {
+        if (!rows.length) return { chartData: [], sceneLabels: [] };
+        // 收集所有路线ID（按数字排序）
+        const allRoutes = new Set();
+        rows.forEach(r => Object.keys(r.route_distribution || {}).forEach(k => allRoutes.add(k)));
+        const sortedRoutes = [...allRoutes].sort((a, b) => parseInt(a) - parseInt(b));
+        const chartData = sortedRoutes.map(routeId => {
+            const entry = { route: `路线${routeId}` };
+            rows.forEach(r => {
+                entry[r.label] = r.route_distribution?.[routeId] || 0;
+            });
+            return entry;
+        });
+        return { chartData, sceneLabels: rows.map(r => r.label) };
+    }, [rows]);
 
     // ── 摘要卡 KPIs ──────────────────────────────────────────
     const bestMatch = rows.reduce((b, r) => r.matching_rate > (b?.matching_rate || 0) ? r : b, null);
@@ -238,6 +256,69 @@ const ComparePage = () => {
                             </Col>
                         );
                     })()}
+
+                    {/* 各路线分流量对比 */}
+                    {routeDistData.chartData.length > 0 && (
+                        <Col xs={24}>
+                            <Card title="各路线分流量对比（每条路线分配的货物数）"
+                                extra={<span style={{fontSize:12, color:'#94A3B8'}}>货物数</span>}>
+                                <ResponsiveContainer width="100%" height={320}>
+                                    <BarChart data={routeDistData.chartData} margin={{top:5, right:20, left:0, bottom:5}}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9"/>
+                                        <XAxis dataKey="route" fontSize={11} tick={{fill:'#64748B'}}/>
+                                        <YAxis fontSize={11} tick={{fill:'#64748B'}} allowDecimals={false}/>
+                                        <RTooltip contentStyle={{fontSize:12, borderRadius:8}}/>
+                                        <Legend wrapperStyle={{fontSize:11}}/>
+                                        {routeDistData.sceneLabels.map((label, i) => (
+                                            <Bar key={label} dataKey={label} fill={PALETTE[i % PALETTE.length]}
+                                                radius={[2,2,0,0]}/>
+                                        ))}
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </Card>
+                        </Col>
+                    )}
+
+                    {/* 同路线跨场景对比折线（路线1~5的分流量随场景变化） */}
+                    {routeDistData.chartData.length > 0 && rows.length >= 2 && (
+                        <Col xs={24}>
+                            <Card title="主要路线跨场景分流变化"
+                                extra={<Tooltip title="展示分流量前8的路线在不同场景下的变化趋势"><span style={{fontSize:12, color:'#94A3B8', cursor:'help'}}>? 说明</span></Tooltip>}>
+                                <ResponsiveContainer width="100%" height={300}>
+                                    <LineChart
+                                        data={rows.map(r => {
+                                            const entry = {label: r.label};
+                                            Object.entries(r.route_distribution || {}).forEach(([k, v]) => {
+                                                entry[`路线${k}`] = v;
+                                            });
+                                            return entry;
+                                        })}
+                                        margin={{top:5, right:20, left:0, bottom:60}}
+                                    >
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9"/>
+                                        <XAxis dataKey="label" fontSize={10} angle={-35} textAnchor="end" interval={0} tick={{fill:'#64748B'}}/>
+                                        <YAxis fontSize={11} tick={{fill:'#64748B'}} allowDecimals={false}/>
+                                        <RTooltip contentStyle={{fontSize:12, borderRadius:8}}/>
+                                        <Legend wrapperStyle={{fontSize:11, paddingTop:8}}/>
+                                        {(() => {
+                                            // 取分流量总和最大的前8条路线
+                                            const totals = {};
+                                            rows.forEach(r => Object.entries(r.route_distribution || {}).forEach(([k,v]) => {
+                                                totals[k] = (totals[k] || 0) + v;
+                                            }));
+                                            return Object.entries(totals)
+                                                .sort((a,b) => b[1]-a[1]).slice(0,8)
+                                                .map(([k], i) => (
+                                                    <Line key={k} type="monotone" dataKey={`路线${k}`}
+                                                        stroke={PALETTE[i % PALETTE.length]} strokeWidth={2}
+                                                        dot={{r:3}} activeDot={{r:5}}/>
+                                                ));
+                                        })()}
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </Card>
+                        </Col>
+                    )}
 
                     {/* 详细数据表 */}
                     <Col xs={24}>

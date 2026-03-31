@@ -341,6 +341,9 @@ async def compare_scenes(scene_ids: str = None):
         # 从 route.csv 读取平均运费（route1 cost1 作为代表性指标）
         avg_cost = _calc_avg_route_cost(SCENES_DIR / s["id"] / "route.csv")
 
+        # 从结果文件读取路线分流量
+        route_dist = _calc_route_distribution(RESULT_BASE / s["id"] / "stable_matching.csv")
+
         rows.append({
             "scene_id":            s["id"],
             "label":               s["label"],
@@ -360,6 +363,7 @@ async def compare_scenes(scene_ids: str = None):
             "restart_num":         result["restart_num"],
             "cpu_time":            result["cpu_time"],
             "avg_route_cost":      avg_cost,
+            "route_distribution":  route_dist,  # {route_id: shipment_count}
         })
 
     return {"status": "success", "data": rows, "count": len(rows)}
@@ -384,6 +388,24 @@ def _calc_avg_route_cost(route_csv: Path) -> float:
         return round(sum(costs) / len(costs), 2) if costs else 0.0
     except Exception:
         return 0.0
+
+
+def _calc_route_distribution(result_csv: Path) -> dict:
+    """从 stable_matching.csv 统计每条路线分配到的货物数（Self 除外）"""
+    if not result_csv.exists():
+        return {}
+    try:
+        with open(result_csv, encoding="utf-8") as f:
+            rows = list(csv.reader(f))
+        assignments = [r.strip() for r in rows[1][1:] if r.strip()]
+        dist = {}
+        for r in assignments:
+            if r == "Self":
+                continue
+            dist[r] = dist.get(r, 0) + 1
+        return dist
+    except Exception:
+        return {}
 
 
 # ── ZIP 上传，自动识别场景 ─────────────────────────────────────
