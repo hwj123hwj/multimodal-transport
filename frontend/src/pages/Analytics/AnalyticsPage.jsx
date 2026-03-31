@@ -276,7 +276,7 @@ const AnalyticsPage = () => {
     // 加载场景列表（只取有结果的）
     useEffect(() => {
         api.get('/compare').then(res => {
-            const list = res?.data || [];
+            const list = res?.data?.data || [];
             setScenes(list);
             if (list.length > 0 && !sceneId) setSceneId(list[0].scene_id);
         }).catch(() => {});

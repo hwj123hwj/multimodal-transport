@@ -30,7 +30,7 @@ const ComparePage = () => {
                 api.get('/compare'),
             ]);
             const sceneList = sc?.data || [];
-            const cmpData   = cmp?.data || [];
+            const cmpData   = cmp?.data?.data || [];
             setScenes(sceneList);
             setCompare(cmpData);
             setNoData(cmpData.length === 0);
