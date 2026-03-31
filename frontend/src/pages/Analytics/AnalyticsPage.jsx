@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {Card, Col, Row, Spin, Statistic, Tag, Tooltip} from 'antd';
+import {Card, Col, Row, Select, Spin, Statistic, Tag, Tooltip} from 'antd';
 import {
     CheckCircleOutlined, ClockCircleOutlined,
     ExclamationCircleOutlined, ReloadOutlined, SyncOutlined,
@@ -11,6 +11,7 @@ import {
     XAxis, YAxis, LabelList,
 } from 'recharts';
 import {analyticsAPI} from '../../services/api';
+import api from '../../services/api';
 
 // ── 颜色系统 ─────────────────────────────────────────────────
 const COLORS = {
@@ -265,19 +266,30 @@ const AlgorithmQualityPanel = ({data}) => {
 // ── 主页面 ────────────────────────────────────────────────────
 const AnalyticsPage = () => {
     const [loading, setLoading]           = useState(true);
+    const [scenes, setScenes]             = useState([]);
+    const [sceneId, setSceneId]           = useState(null);  // null = 默认场景
     const [utilization, setUtilization]   = useState([]);
     const [odFlow, setOdFlow]             = useState(null);
     const [timeValue, setTimeValue]       = useState([]);
     const [algoQuality, setAlgoQuality]   = useState({});
 
-    const loadAll = async () => {
+    // 加载场景列表（只取有结果的）
+    useEffect(() => {
+        api.get('/compare').then(res => {
+            const list = res?.data || [];
+            setScenes(list);
+            if (list.length > 0 && !sceneId) setSceneId(list[0].scene_id);
+        }).catch(() => {});
+    }, []); // eslint-disable-line
+
+    const loadAll = async (sid) => {
         setLoading(true);
         try {
             const [u, o, t, a] = await Promise.all([
-                analyticsAPI.routeUtilization(),
-                analyticsAPI.odFlow(),
-                analyticsAPI.timeValue(),
-                analyticsAPI.algorithmQuality(),
+                analyticsAPI.routeUtilization(sid),
+                analyticsAPI.odFlow(sid),
+                analyticsAPI.timeValue(sid),
+                analyticsAPI.algorithmQuality(sid),
             ]);
             setUtilization(u?.data  || []);
             setOdFlow(o?.data       || null);
@@ -290,13 +302,16 @@ const AnalyticsPage = () => {
         }
     };
 
-    useEffect(() => { loadAll(); }, []);
+    useEffect(() => { loadAll(sceneId); }, [sceneId]); // eslint-disable-line
 
-    // 计算匹配率分档统计（用于页头 KPI）
+    const handleSceneChange = (val) => { setSceneId(val); };
+
     const matchRate = algoQuality?.matching_rate ?? 0;
     const iterNum   = algoQuality?.iteration_num ?? 0;
     const cpuTime   = algoQuality?.cpu_time ?? 0;
     const isStable  = algoQuality?.is_stable ?? false;
+
+    const currentLabel = scenes.find(s => s.scene_id === sceneId)?.label || '默认场景';
 
     return (
         <Spin spinning={loading} tip="加载分析数据...">
@@ -304,19 +319,39 @@ const AnalyticsPage = () => {
                 {/* 页头 */}
                 <div className="page-header" style={{marginBottom: 20}}>
                     <h1 style={{margin: 0}}>数据分析</h1>
-                    <div
-                        onClick={loadAll}
-                        style={{
-                            display: 'flex', alignItems: 'center', gap: 6,
-                            cursor: 'pointer', fontSize: 13,
-                            color: '#64748B', padding: '6px 12px',
-                            borderRadius: 8, border: '1px solid #E2E8F0',
-                            background: '#F8FAFC',
-                        }}
-                    >
-                        <ReloadOutlined spin={loading}/> 刷新
+                    <div style={{display: 'flex', alignItems: 'center', gap: 10}}>
+                        {/* 场景切换 */}
+                        <Select
+                            value={sceneId}
+                            onChange={handleSceneChange}
+                            style={{width: 200}}
+                            placeholder="选择场景"
+                            options={scenes.map(s => ({ value: s.scene_id, label: s.label }))}
+                            size="middle"
+                        />
+                        <div
+                            onClick={() => loadAll(sceneId)}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: 6,
+                                cursor: 'pointer', fontSize: 13,
+                                color: '#64748B', padding: '6px 12px',
+                                borderRadius: 8, border: '1px solid #E2E8F0',
+                                background: '#F8FAFC',
+                            }}
+                        >
+                            <ReloadOutlined spin={loading}/> 刷新
+                        </div>
                     </div>
                 </div>
+
+                {/* 当前场景标签 */}
+                {sceneId && (
+                    <div style={{marginBottom: 12}}>
+                        <Tag color="blue" style={{fontSize: 13, padding: '3px 10px'}}>
+                            当前场景：{currentLabel}
+                        </Tag>
+                    </div>
+                )}
 
                 {/* KPI 摘要行 */}
                 <Row gutter={[12, 12]} style={{marginBottom: 16}}>
@@ -352,7 +387,6 @@ const AnalyticsPage = () => {
                             }
                         >
                             <RouteUtilizationChart data={utilization}/>
-                            {/* 分类图例 */}
                             <div style={{display: 'flex', gap: 16, marginTop: 8, flexWrap: 'wrap'}}>
                                 {Object.entries(CATEGORY_COLORS).filter(([k]) => k !== '未知').map(([cat, color]) => (
                                     <div key={cat} style={{display: 'flex', alignItems: 'center', gap: 4, fontSize: 11}}>

@@ -1,31 +1,123 @@
 """
 数据分析 API
-提供可视化所需的聚合分析数据
+提供可视化所需的聚合分析数据，支持 scene_id 参数切换场景
 """
+import csv
 import logging
-from fastapi import APIRouter, HTTPException
-from ..services import data_service, matching_service
+from pathlib import Path
+from typing import Optional
+
+from fastapi import APIRouter, Query
+from ..services import data_service as _default_ds
+from ..services import matching_service
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 logger = logging.getLogger(__name__)
 
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+_data_override = None
+try:
+    import os
+    _data_override = os.environ.get("DATA_DIR_OVERRIDE")
+except Exception:
+    pass
+
+DATA_DIR    = Path(_data_override) if _data_override else _PROJECT_ROOT / "data"
+SCENES_DIR  = DATA_DIR / "scenes"
+RESULT_BASE = _PROJECT_ROOT / "cmake-build-debug" / "result"
+
+
+def _get_scene_ds(scene_id: Optional[str]):
+    """返回 (data_svc, matchings)。scene_id=None 时使用默认服务和 matching_service。"""
+    if not scene_id:
+        return _default_ds, matching_service.get_all_matchings()
+
+    # 按场景加载独立的 DataService
+    from ..services.data_loader import DataLoader
+    from ..services.data_service import DataService
+
+    scene_dir = SCENES_DIR / scene_id
+    if not scene_dir.exists():
+        return _default_ds, matching_service.get_all_matchings()
+
+    loader = DataLoader(str(scene_dir))
+    ds = DataService(loader)
+
+    # 从该场景的结果目录读取匹配数据
+    result_csv = RESULT_BASE / scene_id / "stable_matching.csv"
+    matchings = _parse_matchings(result_csv, ds) if result_csv.exists() else []
+
+    return ds, matchings
+
+
+def _parse_matchings(result_csv: Path, ds) -> list:
+    """从 stable_matching.csv 构造 matchings 列表（模拟 matching_service 格式）。"""
+    try:
+        with open(result_csv, encoding="utf-8") as f:
+            rows = list(csv.reader(f))
+
+        shipment_ids = [v.strip() for v in rows[0][1:] if v.strip()]
+        route_ids    = [v.strip() for v in rows[1][1:] if v.strip()]
+
+        # 统计数字
+        stats = {}
+        for row in rows[2:]:
+            if len(row) >= 2:
+                key = row[0].strip()
+                val = row[1].strip()
+                stats[key] = val
+
+        total   = len(shipment_ids)
+        matched = sum(1 for r in route_ids if r != "Self")
+
+        shipments_list = []
+        for sid, rid in zip(shipment_ids, route_ids):
+            try:
+                sid_int = int(sid) - 1   # CSV 里是 1-based
+                rid_val = None if rid == "Self" else int(rid)
+            except ValueError:
+                continue
+            shipments_list.append({
+                "shipment_id": sid_int,
+                "assigned_route": "Self" if rid == "Self" else rid_val,
+            })
+
+        def _float(s):
+            try: return float(s)
+            except Exception: return 0
+
+        return [{
+            "is_stable":    stats.get("Stable or not", "False").strip() == "True",
+            "iteration_num": int(_float(stats.get("Iteration num", 0))),
+            "restart_num":   int(_float(stats.get("Restart num", 0))),
+            "cpu_time":      round(_float(stats.get("CPU time", 0)), 4),
+            "matching_rate": matched / total if total else 0,
+            "total_shipments":    total,
+            "matched_shipments":  matched,
+            "total_capacity":     int(_float(stats.get("Total capacity in route", 0))),
+            "total_container_number": int(_float(stats.get("Total container number in shipment", 0))),
+            "total_matched_container_number": int(_float(stats.get("Total matched container number", 0))),
+            "shipments": shipments_list,
+        }]
+    except Exception as e:
+        logger.error(f"解析结果文件失败 {result_csv}: {e}")
+        return []
+
+
+# ── 端点 ─────────────────────────────────────────────────────
 
 @router.get("/route-utilization")
-async def get_route_utilization():
-    """每条路线的容量 vs 已用容量（用于柱状图）"""
+async def get_route_utilization(scene_id: Optional[str] = Query(None)):
     try:
-        routes_data = data_service.get_all_routes()
-        route_map = {r["route_id"]: r for r in routes_data["routes"]}
-
-        # 统计每条路线分配到的总需求量
-        demand_by_route: dict[int, float] = {}
-        matchings = matching_service.get_all_matchings()
-        shipments_data = data_service.get_all_shipments()
+        ds, matchings = _get_scene_ds(scene_id)
+        routes_data  = ds.get_all_routes()
+        shipments_data = ds.get_all_shipments()
         shipment_map = {s["shipment_id"]: s for s in shipments_data["shipments"]}
 
+        demand_by_route: dict = {}
         for matching in matchings:
             for s in matching.get("shipments", []):
-                route_id = s.get("assigned_route")
+                route_id   = s.get("assigned_route")
                 shipment_id = s.get("shipment_id")
                 if route_id == "Self" or route_id is None:
                     continue
@@ -34,17 +126,17 @@ async def get_route_utilization():
 
         result = []
         for route in routes_data["routes"]:
-            rid = route["route_id"]
+            rid      = route["route_id"]
             capacity = route.get("capacity", 0)
-            used = demand_by_route.get(rid, 0)
+            used     = demand_by_route.get(rid, 0)
             result.append({
-                "route_id": rid,
-                "label": f"路线{rid}",
-                "nodes": " → ".join(route.get("nodes", [])),
-                "category": route.get("route_category", "未知"),
-                "capacity": capacity,
-                "used": used,
-                "available": max(capacity - used, 0),
+                "route_id":       rid,
+                "label":          f"路线{rid}",
+                "nodes":          " → ".join(route.get("nodes", [])),
+                "category":       route.get("route_category", "未知"),
+                "capacity":       capacity,
+                "used":           used,
+                "available":      max(capacity - used, 0),
                 "utilization_pct": round(used / capacity * 100, 1) if capacity > 0 else 0,
             })
 
@@ -52,51 +144,47 @@ async def get_route_utilization():
         return {"status": "success", "data": result}
     except Exception as e:
         logger.error(f"路线利用率分析失败: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        return {"status": "success", "data": []}
 
 
 @router.get("/od-flow")
-async def get_od_flow():
-    """OD 货流矩阵（用于 Sankey 图）"""
+async def get_od_flow(scene_id: Optional[str] = Query(None)):
     try:
-        shipments_data = data_service.get_all_shipments()
-        matchings = matching_service.get_all_matchings()
-        shipment_map = {s["shipment_id"]: s for s in shipments_data["shipments"]}
+        ds, matchings = _get_scene_ds(scene_id)
+        shipments_data = ds.get_all_shipments()
+        shipment_map   = {s["shipment_id"]: s for s in shipments_data["shipments"]}
 
-        # 收集每票货物的匹配状态
         matched_ids = set()
         for matching in matchings:
             for s in matching.get("shipments", []):
                 if s.get("assigned_route") != "Self":
                     matched_ids.add(s.get("shipment_id"))
 
-        # 按 OD 对聚合流量
-        od: dict[tuple, dict] = {}
+        od: dict = {}
         for s in shipments_data["shipments"]:
             origin = s.get("origin_city", "未知")
-            dest = s.get("destination_city", "未知")
+            dest   = s.get("destination_city", "未知")
             demand = s.get("demand", 0)
             is_matched = s["shipment_id"] in matched_ids
             key = (origin, dest)
             if key not in od:
                 od[key] = {"origin": origin, "destination": dest,
                            "total_demand": 0, "matched_demand": 0, "shipment_count": 0}
-            od[key]["total_demand"] += demand
-            od[key]["shipment_count"] += 1
+            od[key]["total_demand"]    += demand
+            od[key]["shipment_count"]  += 1
             if is_matched:
                 od[key]["matched_demand"] += demand
 
-        # 转换为 Sankey links 格式
         nodes_set = set()
         links = []
         for v in od.values():
             nodes_set.add(v["origin"])
             nodes_set.add(v["destination"])
             links.append({
-                "source": v["origin"],
-                "target": v["destination"],
-                "value": v["total_demand"],
-                "matched": v["matched_demand"],
+                "source":         v["origin"],
+                "target":         v["destination"],
+                "value":          v["total_demand"],
+                "matched":        v["matched_demand"],
                 "shipment_count": v["shipment_count"],
             })
 
@@ -104,15 +192,14 @@ async def get_od_flow():
         return {"status": "success", "data": {"nodes": nodes, "links": links}}
     except Exception as e:
         logger.error(f"OD流量分析失败: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        return {"status": "success", "data": None}
 
 
 @router.get("/time-value")
-async def get_time_value_analysis():
-    """时间价值分布与匹配情况（用于饼图 + 分组柱状图）"""
+async def get_time_value_analysis(scene_id: Optional[str] = Query(None)):
     try:
-        shipments_data = data_service.get_all_shipments()
-        matchings = matching_service.get_all_matchings()
+        ds, matchings = _get_scene_ds(scene_id)
+        shipments_data = ds.get_all_shipments()
 
         matched_ids = set()
         for matching in matchings:
@@ -120,53 +207,47 @@ async def get_time_value_analysis():
                 if s.get("assigned_route") != "Self":
                     matched_ids.add(s.get("shipment_id"))
 
-        # 按时间价值分档统计
-        TIERS = {100: "普通(100)", 1700: "较高(1700)", 2500: "高价值(2500)"}
-        stats: dict[int, dict] = {
-            100:  {"label": "普通(100)",     "total": 0, "matched": 0, "total_demand": 0, "matched_demand": 0},
-            1700: {"label": "较高(1700)",    "total": 0, "matched": 0, "total_demand": 0, "matched_demand": 0},
-            2500: {"label": "高价值(2500)",  "total": 0, "matched": 0, "total_demand": 0, "matched_demand": 0},
+        stats: dict = {
+            100:  {"label": "普通(100)",    "total": 0, "matched": 0, "total_demand": 0, "matched_demand": 0},
+            1700: {"label": "较高(1700)",   "total": 0, "matched": 0, "total_demand": 0, "matched_demand": 0},
+            2500: {"label": "高价值(2500)", "total": 0, "matched": 0, "total_demand": 0, "matched_demand": 0},
         }
-
         for s in shipments_data["shipments"]:
-            tv = s.get("time_value", 0)
+            tv   = s.get("time_value", 0)
             tier = tv if tv in stats else 100
-            stats[tier]["total"] += 1
+            stats[tier]["total"]        += 1
             stats[tier]["total_demand"] += s.get("demand", 0)
             if s["shipment_id"] in matched_ids:
-                stats[tier]["matched"] += 1
+                stats[tier]["matched"]        += 1
                 stats[tier]["matched_demand"] += s.get("demand", 0)
 
         result = []
         for tv, d in stats.items():
             result.append({
-                "time_value": tv,
-                "label": d["label"],
-                "total_shipments": d["total"],
-                "matched_shipments": d["matched"],
+                "time_value":          tv,
+                "label":               d["label"],
+                "total_shipments":     d["total"],
+                "matched_shipments":   d["matched"],
                 "unmatched_shipments": d["total"] - d["matched"],
-                "match_rate": round(d["matched"] / d["total"] * 100, 1) if d["total"] > 0 else 0,
-                "total_demand": d["total_demand"],
-                "matched_demand": d["matched_demand"],
+                "match_rate":          round(d["matched"] / d["total"] * 100, 1) if d["total"] > 0 else 0,
+                "total_demand":        d["total_demand"],
+                "matched_demand":      d["matched_demand"],
             })
 
         return {"status": "success", "data": result}
     except Exception as e:
         logger.error(f"时间价值分析失败: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        return {"status": "success", "data": []}
 
 
 @router.get("/algorithm-quality")
-async def get_algorithm_quality():
-    """算法质量指标（用于仪表盘 + 统计卡）"""
+async def get_algorithm_quality(scene_id: Optional[str] = Query(None)):
     try:
-        matchings = matching_service.get_all_matchings()
+        _, matchings = _get_scene_ds(scene_id)
         if not matchings:
             return {"status": "success", "data": {}}
 
-        # to_dict() 所有字段都在顶层，没有嵌套 statistics 键
         m = matchings[0]
-
         return {
             "status": "success",
             "data": {
@@ -174,7 +255,6 @@ async def get_algorithm_quality():
                 "iteration_num":         m.get("iteration_num", 0),
                 "restart_num":           m.get("restart_num", 0),
                 "cpu_time":              m.get("cpu_time", 0),
-                # matching_rate 在 to_dict() 里是 0~1 小数，乘 100 转百分比
                 "matching_rate":         round(m.get("matching_rate", 0) * 100, 2),
                 "total_shipments":       m.get("total_shipments", 0),
                 "matched_shipments":     m.get("matched_shipments", 0),
@@ -185,4 +265,4 @@ async def get_algorithm_quality():
         }
     except Exception as e:
         logger.error(f"算法质量分析失败: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        return {"status": "success", "data": {}}

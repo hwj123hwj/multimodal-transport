@@ -181,10 +181,10 @@ export const executeAlgorithmAPI = {
 };
 
 export const analyticsAPI = {
-    routeUtilization: () => api.get('/analytics/route-utilization'),
-    odFlow:           () => api.get('/analytics/od-flow'),
-    timeValue:        () => api.get('/analytics/time-value'),
-    algorithmQuality: () => api.get('/analytics/algorithm-quality'),
+    routeUtilization: (sceneId) => api.get('/analytics/route-utilization', { params: sceneId ? { scene_id: sceneId } : {} }),
+    odFlow:           (sceneId) => api.get('/analytics/od-flow',            { params: sceneId ? { scene_id: sceneId } : {} }),
+    timeValue:        (sceneId) => api.get('/analytics/time-value',         { params: sceneId ? { scene_id: sceneId } : {} }),
+    algorithmQuality: (sceneId) => api.get('/analytics/algorithm-quality',  { params: sceneId ? { scene_id: sceneId } : {} }),
 };
 
 export default api;

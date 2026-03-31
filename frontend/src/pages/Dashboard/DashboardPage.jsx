@@ -1,271 +1,189 @@
-import React, {useEffect, useState} from 'react';
-import {Button, Card, Col, Empty, Progress, Row, Statistic, Table, Tag} from 'antd';
+import React, {useCallback, useEffect, useState} from 'react';
+import {Button, Card, Col, Empty, Progress, Row, Spin, Tag} from 'antd';
 import {
     CheckCircleOutlined,
-    ClockCircleOutlined,
-    DotChartOutlined,
     ExclamationCircleOutlined,
     NodeIndexOutlined,
     InboxOutlined,
+    BarChartOutlined,
+    ClockCircleOutlined,
 } from '@ant-design/icons';
-import {matchingAPI, routesAPI, shipmentsAPI} from '../../services/api';
-import MapViewer from '../../components/MapViewer/MapViewer';
+import {useNavigate} from 'react-router-dom';
+import api from '../../services/api';
 
-const {Column} = Table;
+const PALETTE = [
+    '#3B82F6','#10B981','#F59E0B','#EF4444','#8B5CF6',
+    '#06B6D4','#84CC16','#F97316','#EC4899','#6366F1','#14B8A6',
+];
 
-// ── Stat Card ────────────────────────────────────────────────
-const StatCard = ({title, value, suffix, precision, colorClass, icon, iconColor, sub, noSuffixSpace}) => (
-    <Card className={colorClass} style={{height: '100%'}}>
-        <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8}}>
-            {/* 图标 */}
-            <div style={{
-                width: 44, height: 44, borderRadius: '50%',
-                background: `${iconColor}18`,
-                border: `1.5px solid ${iconColor}30`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 20, flexShrink: 0, color: iconColor,
-            }}>{icon}</div>
-            {/* 数值 */}
-            <div style={{flex: 1, minWidth: 0, textAlign: 'right'}}>
-                <div style={{
-                    fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)',
-                    textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4,
-                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
-                }}>{title}</div>
-                {noSuffixSpace ? (
-                    <div style={{
-                        fontSize: 24, fontWeight: 800,
-                        fontFamily: 'var(--font-mono)', lineHeight: 1.1,
-                        whiteSpace: 'nowrap', color: 'var(--text-primary)'
-                    }}>
-                        {typeof value === 'number' ? value.toFixed(precision ?? 0) : value}{suffix}
-                    </div>
-                ) : (
-                    <Statistic
-                        value={value}
-                        suffix={suffix}
-                        precision={precision}
-                        valueStyle={{
-                            fontSize: 24, fontWeight: 800,
-                            fontFamily: 'var(--font-mono)', lineHeight: 1.1,
-                            whiteSpace: 'nowrap',
-                        }}
-                    />
-                )}
-                {sub && <div style={{marginTop: 4, fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap'}}>{sub}</div>}
+// ── 单场景卡片 ────────────────────────────────────────────────
+const SceneCard = ({scene, color}) => {
+    const matchRate = scene.matching_rate ?? 0;
+    const contRate  = scene.container_rate ?? 0;
+
+    return (
+        <Card
+            size="small"
+            style={{
+                borderTop: `3px solid ${color}`,
+                height: '100%',
+                transition: 'box-shadow 0.2s',
+            }}
+            hoverable
+        >
+            {/* 场景名 + 稳定标签 */}
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:10}}>
+                <div style={{fontWeight:700, fontSize:13, color:'#1E293B', lineHeight:1.3, flex:1, marginRight:6}}>
+                    {scene.label}
+                </div>
+                <Tag
+                    color={scene.is_stable ? 'success' : 'warning'}
+                    style={{fontSize:11, flexShrink:0}}
+                    icon={scene.is_stable ? <CheckCircleOutlined/> : <ExclamationCircleOutlined/>}
+                >
+                    {scene.is_stable ? '稳定' : '不稳定'}
+                </Tag>
             </div>
-        </div>
-    </Card>
-);
 
+            {/* 匹配率进度条 */}
+            <div style={{marginBottom:8}}>
+                <div style={{display:'flex', justifyContent:'space-between', fontSize:11, color:'#64748B', marginBottom:3}}>
+                    <span>匹配率</span>
+                    <span style={{fontWeight:700, color: matchRate >= 70 ? '#10B981' : '#F59E0B',
+                        fontFamily:'var(--font-mono)'}}>{matchRate}%</span>
+                </div>
+                <Progress
+                    percent={matchRate} showInfo={false} size="small"
+                    strokeColor={matchRate >= 70 ? '#10B981' : '#F59E0B'}
+                    trailColor="#E2E8F0" strokeWidth={6}
+                />
+            </div>
+
+            {/* 集装箱率进度条 */}
+            <div style={{marginBottom:10}}>
+                <div style={{display:'flex', justifyContent:'space-between', fontSize:11, color:'#64748B', marginBottom:3}}>
+                    <span>集装箱率</span>
+                    <span style={{fontWeight:700, color:color, fontFamily:'var(--font-mono)'}}>{contRate}%</span>
+                </div>
+                <Progress
+                    percent={contRate} showInfo={false} size="small"
+                    strokeColor={color} trailColor="#E2E8F0" strokeWidth={6}
+                />
+            </div>
+
+            {/* 底部统计 */}
+            <div style={{display:'flex', justifyContent:'space-between', fontSize:11, color:'#94A3B8',
+                borderTop:'1px solid #F1F5F9', paddingTop:8}}>
+                <span><InboxOutlined style={{marginRight:3}}/>已匹配 {scene.matched_shipments}</span>
+                <span><ClockCircleOutlined style={{marginRight:3}}/>{scene.cpu_time}s</span>
+                <span>迭代 {scene.iteration_num}</span>
+            </div>
+        </Card>
+    );
+};
+
+// ── 主页面 ────────────────────────────────────────────────────
 export const DashboardPage = () => {
     const [loading, setLoading] = useState(true);
-    const [loadError, setLoadError] = useState(false);
-    const [routes, setRoutes] = useState([]);
-    const [shipments, setShipments] = useState([]);
-    const [matchRoutesShipmentsData, setMatchRoutesShipmentsData] = useState([]);
-    const [stats, setStats] = useState({
-        totalRoutes: 0, totalShipments: 0,
-        matchedShipments: 0, unmatchedShipments: 0,
-        matchingRate: 0, cpuTime: 0,
-    });
+    const [scenes, setScenes]   = useState([]);
+    const [totalScenes, setTotalScenes] = useState(0);
+    const navigate = useNavigate();
 
-    const loadData = async () => {
+    const loadData = useCallback(async () => {
         setLoading(true);
-        setLoadError(false);
         try {
-            const [routesRes, shipmentsRes, matchingRes, mappingRes] = await Promise.all([
-                routesAPI.getAll(),
-                shipmentsAPI.getAll(),
-                matchingAPI.getAll(),
-                matchingAPI.getMatching(),
+            const [compareRes, allRes] = await Promise.all([
+                api.get('/compare'),
+                api.get('/scenes'),
             ]);
-            const routesData    = routesRes?.data?.routes      || [];
-            const shipmentsData = shipmentsRes?.data?.shipments || [];
-            const matchingData  = matchingRes?.data             || [];
-            const mappingData   = mappingRes?.data              || [];
-
-            setRoutes(routesData);
-            setShipments(shipmentsData);
-            setMatchRoutesShipmentsData(mappingData);
-
-            const first = Array.isArray(matchingData) ? matchingData[0] : null;
-            setStats({
-                totalRoutes:       routesData.length,
-                totalShipments:    shipmentsData.length,
-                matchedShipments:  first?.matched_shipments   ?? 0,
-                unmatchedShipments:first?.unmatched_shipments  ?? 0,
-                matchingRate:      first ? Math.round(first.matching_rate * 100) : 0,
-                cpuTime:           first?.cpu_time ?? 0,
-            });
+            setScenes(compareRes?.data || []);
+            setTotalScenes((allRes?.data || []).length);
         } catch (e) {
-            setLoadError(true);
+            // ignore
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
-    useEffect(() => { loadData(); }, []);
+    useEffect(() => { loadData(); }, [loadData]);
 
-    const recentMatches = matchRoutesShipmentsData.slice(0, 12).map(m => ({
-        ...m,
-        key:          m.id,
-        routeName:    m.route_id !== 'Self' ? `路线 ${m.route_id}` : '未分配',
-        shipmentName: `货物 ${m.shipment_id}`,
-        matched:      m.route_id !== 'Self',
-    }));
+    const executedCount = scenes.length;
+    const stableCount   = scenes.filter(s => s.is_stable).length;
+    const avgMatchRate  = executedCount
+        ? Math.round(scenes.reduce((s, r) => s + r.matching_rate, 0) / executedCount * 10) / 10
+        : 0;
 
     return (
-        <div>
-            {/* Header row */}
-            <div className="page-header">
-                <h1 style={{margin: 0}}>系统概览</h1>
-                <Button type="primary" onClick={loadData} loading={loading} style={{borderRadius: 8}}>
-                    刷新数据
-                </Button>
-            </div>
-
-            {loadError && (
-                <div style={{
-                    marginBottom: 16, padding: '10px 16px',
-                    background: '#FEF2F2', border: '1px solid #FCA5A5',
-                    borderRadius: 8, color: '#DC2626', fontSize: 13,
-                    display: 'flex', alignItems: 'center', gap: 8
-                }}>
-                    <ExclamationCircleOutlined/>
-                    无法连接到后端服务，数据加载失败。请确认服务正常后点击「刷新数据」。
+        <Spin spinning={loading}>
+            <div>
+                {/* 页头 */}
+                <div className="page-header" style={{marginBottom:16}}>
+                    <h1 style={{margin:0}}>系统概览</h1>
+                    <Button size="small" onClick={loadData} loading={loading}>刷新</Button>
                 </div>
-            )}
 
-            {/* KPI Row */}
-            <Row gutter={[12, 12]} style={{marginBottom: 16}}>
-                <Col xs={12} sm={8} lg={4}>
-                    <StatCard title="总路线数" value={stats.totalRoutes}
-                        colorClass="stat-card-blue"
-                        icon={<NodeIndexOutlined/>} iconColor="#2563EB"
-                        sub="可用运输路线"/>
-                </Col>
-                <Col xs={12} sm={8} lg={4}>
-                    <StatCard title="总货物数" value={stats.totalShipments}
-                        colorClass="stat-card-green"
-                        icon={<InboxOutlined/>} iconColor="#059669"
-                        sub="待匹配货物"/>
-                </Col>
-                <Col xs={12} sm={8} lg={4}>
-                    <StatCard title="匹配成功" value={stats.matchedShipments}
-                        colorClass="stat-card-green"
-                        icon={<CheckCircleOutlined/>} iconColor="#059669"/>
-                </Col>
-                <Col xs={12} sm={8} lg={4}>
-                    <StatCard title="未匹配" value={stats.unmatchedShipments}
-                        colorClass="stat-card-red"
-                        icon={<ExclamationCircleOutlined/>} iconColor="#DC2626"/>
-                </Col>
-                <Col xs={12} sm={8} lg={4}>
-                    <StatCard title="匹配率" value={stats.matchingRate} suffix="%"
-                        colorClass="stat-card-orange"
-                        icon={<DotChartOutlined/>} iconColor="#D97706"/>
-                </Col>
-                <Col xs={12} sm={8} lg={4}>
-                    <StatCard title="算法耗时" value={stats.cpuTime} suffix="s" precision={2}
-                        colorClass="stat-card-purple"
-                        icon={<ClockCircleOutlined/>} iconColor="#7C3AED"
-                        noSuffixSpace/>
-                </Col>
-            </Row>
+                {/* 汇总 KPI */}
+                <Row gutter={[12,12]} style={{marginBottom:16}}>
+                    {[
+                        {label:'总场景数',   value: totalScenes,    icon:<NodeIndexOutlined/>,  color:'#3B82F6'},
+                        {label:'已执行场景', value: executedCount,  icon:<BarChartOutlined/>,   color:'#10B981'},
+                        {label:'稳定场景',   value: stableCount,    icon:<CheckCircleOutlined/>,color:'#8B5CF6'},
+                        {label:'平均匹配率', value: `${avgMatchRate}%`, icon:<InboxOutlined/>,  color:'#F59E0B'},
+                    ].map(k => (
+                        <Col key={k.label} xs={12} sm={6}>
+                            <Card>
+                                <div style={{display:'flex', alignItems:'center', gap:10}}>
+                                    <div style={{
+                                        width:40, height:40, borderRadius:'50%',
+                                        background:`${k.color}18`, border:`1.5px solid ${k.color}30`,
+                                        display:'flex', alignItems:'center', justifyContent:'center',
+                                        fontSize:18, color:k.color, flexShrink:0,
+                                    }}>{k.icon}</div>
+                                    <div>
+                                        <div style={{fontSize:11, color:'#94A3B8', fontWeight:600,
+                                            textTransform:'uppercase', letterSpacing:'0.05em'}}>{k.label}</div>
+                                        <div style={{fontSize:22, fontWeight:800,
+                                            fontFamily:'var(--font-mono)', color:'#1E293B'}}>{k.value}</div>
+                                    </div>
+                                </div>
+                            </Card>
+                        </Col>
+                    ))}
+                </Row>
 
-            {/* Progress + Map + Table */}
-            <Row gutter={[12, 12]} style={{height: 520}}>
-                {/* Left column */}
-                <Col xs={24} lg={14} style={{height: '100%', display: 'flex', flexDirection: 'column', gap: 12}}>
-                    {/* Match rate progress */}
-                    <Card
-                        title="整体匹配率"
-                        style={{flexShrink: 0}}
-                        extra={
-                            <span style={{
-                                fontFamily: 'var(--font-mono)', fontSize: 20,
-                                fontWeight: 800,
-                                color: stats.matchingRate >= 70 ? 'var(--success)' : 'var(--warning)'
-                            }}>
-                                {stats.matchingRate}%
+                {/* 场景卡片网格 */}
+                {scenes.length === 0 ? (
+                    <Card>
+                        <Empty
+                            description="暂无已执行场景，请前往「数据上传」页面执行算法"
+                            style={{padding:'40px 0'}}
+                        >
+                            <Button type="primary" onClick={() => navigate('/data-upload')}>
+                                前往上传执行
+                            </Button>
+                        </Empty>
+                    </Card>
+                ) : (
+                    <>
+                        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10}}>
+                            <span style={{fontSize:13, color:'#64748B', fontWeight:600}}>
+                                已执行场景（{executedCount} 个）
                             </span>
-                        }
-                    >
-                        <div style={{paddingBottom: 4}}>
-                            <Progress
-                                percent={stats.matchingRate}
-                                showInfo={false}
-                                strokeWidth={10}
-                                strokeColor={{
-                                    '0%':   '#3B82F6',
-                                    '60%':  '#10B981',
-                                    '100%': '#10B981',
-                                }}
-                                trailColor="#E2E8F0"
-                            />
-                            <div style={{display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 12, color: 'var(--text-muted)'}}>
-                                <span>已匹配 {stats.matchedShipments} 票</span>
-                                <span>未匹配 {stats.unmatchedShipments} 票</span>
-                                <span>共 {stats.totalShipments} 票</span>
-                            </div>
+                            <Button size="small" type="link" onClick={() => navigate('/compare')}>
+                                查看对比分析 →
+                            </Button>
                         </div>
-                    </Card>
-
-                    {/* Map — flex:1 + minHeight:0 撑满左列剩余高度，不超出 */}
-                    <Card
-                        title="路线与货物分布"
-                        style={{flex: 1, minHeight: 0, overflow: 'hidden'}}
-                        styles={{body: {padding: 0, height: 'calc(100% - 46px)', overflow: 'hidden'}}}
-                    >
-                        <MapViewer
-                            mode="routes"
-                            routes={routes}
-                            shipments={shipments}
-                            height="100%"
-                            showControls={false}
-                            showLegend={false}
-                        />
-                    </Card>
-                </Col>
-
-                {/* Right column */}
-                <Col xs={24} lg={10} style={{height: '100%', display: 'flex', flexDirection: 'column'}}>
-                    <Card
-                        title="最近匹配记录"
-                        style={{flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column'}}
-                        styles={{body: {flex: 1, minHeight: 0, overflow: 'auto', padding: '0 1px'}}}
-                        extra={
-                            <span style={{fontSize: 12, color: 'var(--text-muted)'}}>
-                                前 {recentMatches.length} 条
-                            </span>
-                        }
-                    >
-                        {recentMatches.length > 0 ? (
-                            <Table
-                                dataSource={recentMatches}
-                                pagination={false}
-                                size="small"
-                                style={{fontSize: 13}}
-                            >
-                                <Column title="货物" dataIndex="shipmentName" key="ship" width={90}/>
-                                <Column title="路线" dataIndex="routeName"    key="route" width={90}/>
-                                <Column
-                                    title="状态" key="status" width={70} align="center"
-                                    render={(_, r) => (
-                                        <Tag color={r.matched ? 'success' : 'error'}>
-                                            {r.matched ? '已匹配' : '未匹配'}
-                                        </Tag>
-                                    )}
-                                />
-                            </Table>
-                        ) : (
-                            <Empty description="暂无匹配结果，请先执行算法" style={{paddingTop: 60}}/>
-                        )}
-                    </Card>
-                </Col>
-            </Row>
-        </div>
+                        <Row gutter={[12,12]}>
+                            {scenes.map((scene, i) => (
+                                <Col key={scene.scene_id} xs={24} sm={12} lg={8} xl={6}>
+                                    <SceneCard scene={scene} color={PALETTE[i % PALETTE.length]}/>
+                                </Col>
+                            ))}
+                        </Row>
+                    </>
+                )}
+            </div>
+        </Spin>
     );
 };
 
