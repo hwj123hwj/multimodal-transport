@@ -37,8 +37,8 @@ const MatchingPage = () => {
             if (sceneId) {
                 // 按场景加载
                 const res = await api.get(`/scenes/${sceneId}/matchings`);
-                detailedMatchings = res?.data || [];
-                summaryData = res?.summary || {};
+                detailedMatchings = res?.data?.data || [];
+                summaryData = res?.data?.summary || {};
             } else {
                 // 默认加载
                 const detailedResponse = await matchingAPI.getDetailed();
@@ -48,10 +48,12 @@ const MatchingPage = () => {
             }
 
             const stats = {
-                total_shipments: summaryData.total_shipments ?? detailedMatchings.length,
-                unmatched_shipments: summaryData.unmatched_shipments ?? 0,
-                matchedShipments: summaryData.matched_shipments ?? 0,
-                avgMatchScore: summaryData.avg_matching_rate ? (summaryData.avg_matching_rate * 100) : 0
+                total_shipments:     summaryData.total_shipments     ?? detailedMatchings.length,
+                unmatched_shipments: summaryData.unmatched_shipments  ?? 0,
+                matchedShipments:    summaryData.matched_shipments     ?? 0,
+                avgMatchScore:       summaryData.matching_rate != null
+                    ? Math.round(summaryData.matching_rate * 1000) / 10   // 0~1 → 百分比保留1位
+                    : (summaryData.avg_matching_rate ? summaryData.avg_matching_rate * 100 : 0),
             };
             setStatistics(stats);
 
