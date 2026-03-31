@@ -96,7 +96,7 @@ export const DashboardPage = () => {
                 api.get('/compare'),
                 api.get('/scenes'),
             ]);
-            setScenes(compareRes?.data?.data || []);
+            setScenes(compareRes?.data?.data || compareRes?.data || []);
             setTotalScenes((allRes?.data?.data || allRes?.data || []).length);
         } catch (e) {
             // ignore
