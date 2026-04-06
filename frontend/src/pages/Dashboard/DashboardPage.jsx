@@ -9,18 +9,39 @@ import {
     ClockCircleOutlined,
 } from '@ant-design/icons';
 import {useNavigate} from 'react-router-dom';
-import api from '../../services/api';
+import api, {analyticsAPI} from '../../services/api';
 
 const PALETTE = [
     '#3B82F6','#10B981','#F59E0B','#EF4444','#8B5CF6',
     '#06B6D4','#84CC16','#F97316','#EC4899','#6366F1','#14B8A6',
 ];
+const CORRIDORS = [
+    {key: '西部陆海新通道', color: '#3B82F6'},
+    {key: '长江经济带', color: '#10B981'},
+    {key: '跨境公路', color: '#F59E0B'},
+];
+const EMPTY_CORRIDOR = {matched_teu: 0, capacity: 0, utilization: 0};
+
+const getCorridorMetric = (scene, corridorKey) => scene?.corridors?.[corridorKey] || EMPTY_CORRIDOR;
+const formatPercent = (value) => Number(value || 0).toFixed(1);
+
+const getSubsidyWeight = (scene) => {
+    if (scene?.scene_id === '政府补贴') return Number.POSITIVE_INFINITY;
+    const matched = scene?.scene_id?.match(/补贴(\d+)pct$/);
+    return matched ? Number(matched[1]) : -1;
+};
+
+const pickKpiScene = (sceneList) => {
+    const subsidyScenes = sceneList.filter(scene => scene?.scene_id?.startsWith('政府补贴'));
+    if (subsidyScenes.length === 0) return null;
+
+    return subsidyScenes.reduce((best, current) => (
+        getSubsidyWeight(current) > getSubsidyWeight(best) ? current : best
+    ), subsidyScenes[0]);
+};
 
 // ── 单场景卡片 ────────────────────────────────────────────────
 const SceneCard = ({scene, color}) => {
-    const matchRate = scene.matching_rate ?? 0;
-    const contRate  = scene.container_rate ?? 0;
-
     return (
         <Card
             size="small"
@@ -45,30 +66,29 @@ const SceneCard = ({scene, color}) => {
                 </Tag>
             </div>
 
-            {/* 匹配率进度条 */}
-            <div style={{marginBottom:8}}>
-                <div style={{display:'flex', justifyContent:'space-between', fontSize:11, color:'#64748B', marginBottom:3}}>
-                    <span>匹配率</span>
-                    <span style={{fontWeight:700, color: matchRate >= 70 ? '#10B981' : '#F59E0B',
-                        fontFamily:'var(--font-mono)'}}>{matchRate}%</span>
-                </div>
-                <Progress
-                    percent={matchRate} showInfo={false} size="small"
-                    strokeColor={matchRate >= 70 ? '#10B981' : '#F59E0B'}
-                    trailColor="#E2E8F0" strokeWidth={6}
-                />
-            </div>
-
-            {/* 集装箱率进度条 */}
+            {/* 三条走廊利用率 */}
             <div style={{marginBottom:10}}>
-                <div style={{display:'flex', justifyContent:'space-between', fontSize:11, color:'#64748B', marginBottom:3}}>
-                    <span>集装箱率</span>
-                    <span style={{fontWeight:700, color:color, fontFamily:'var(--font-mono)'}}>{contRate}%</span>
-                </div>
-                <Progress
-                    percent={contRate} showInfo={false} size="small"
-                    strokeColor={color} trailColor="#E2E8F0" strokeWidth={6}
-                />
+                {CORRIDORS.map((corridor, index) => {
+                    const metric = getCorridorMetric(scene, corridor.key);
+                    return (
+                        <div key={corridor.key} style={{marginBottom: index === CORRIDORS.length - 1 ? 0 : 8}}>
+                            <div style={{display:'flex', justifyContent:'space-between', fontSize:11, color:'#64748B', marginBottom:3, gap:8}}>
+                                <span>{corridor.key}</span>
+                                <span style={{fontWeight:700, color:corridor.color, fontFamily:'var(--font-mono)'}}>
+                                    {formatPercent(metric.utilization)}%
+                                </span>
+                            </div>
+                            <Progress
+                                percent={Math.min(metric.utilization, 100)}
+                                showInfo={false}
+                                size="small"
+                                strokeColor={corridor.color}
+                                trailColor="#E2E8F0"
+                                strokeWidth={6}
+                            />
+                        </div>
+                    );
+                })}
             </div>
 
             {/* 底部统计 */}
@@ -92,14 +112,32 @@ export const DashboardPage = () => {
     const loadData = useCallback(async () => {
         setLoading(true);
         try {
-            const [compareRes, allRes] = await Promise.all([
+            const [compareRes, allRes, corridorRes] = await Promise.allSettled([
                 api.get('/compare'),
                 api.get('/scenes'),
+                analyticsAPI.corridorUtilization(),
             ]);
-            setScenes(compareRes?.data?.data || compareRes?.data || []);
-            setTotalScenes((allRes?.data?.data || allRes?.data || []).length);
-        } catch (e) {
-            // ignore
+
+            const compareData = compareRes.status === 'fulfilled'
+                ? (compareRes.value?.data || compareRes.value || [])
+                : [];
+            const allScenes = allRes.status === 'fulfilled'
+                ? (allRes.value?.data || allRes.value || [])
+                : [];
+            const corridorScenes = corridorRes.status === 'fulfilled'
+                ? (corridorRes.value?.scenes || [])
+                : [];
+
+            const corridorMap = corridorScenes.reduce((acc, scene) => {
+                acc[scene.scene_id] = scene.corridors || {};
+                return acc;
+            }, {});
+
+            setScenes(compareData.map(scene => ({
+                ...scene,
+                corridors: corridorMap[scene.scene_id] || {},
+            })));
+            setTotalScenes(allScenes.length);
         } finally {
             setLoading(false);
         }
@@ -109,9 +147,21 @@ export const DashboardPage = () => {
 
     const executedCount = scenes.length;
     const stableCount   = scenes.filter(s => s.is_stable).length;
-    const avgMatchRate  = executedCount
-        ? Math.round(scenes.reduce((s, r) => s + r.matching_rate, 0) / executedCount * 10) / 10
-        : 0;
+    const kpiScene = pickKpiScene(scenes);
+    const corridorKpis = CORRIDORS.map(corridor => {
+        const value = kpiScene
+            ? getCorridorMetric(kpiScene, corridor.key).utilization
+            : (
+                executedCount
+                    ? Math.round(
+                        scenes.reduce((sum, scene) => sum + getCorridorMetric(scene, corridor.key).utilization, 0)
+                        / executedCount * 10
+                    ) / 10
+                    : 0
+            );
+
+        return {...corridor, value};
+    });
 
     return (
         <Spin spinning={loading}>
@@ -128,7 +178,6 @@ export const DashboardPage = () => {
                         {label:'总场景数',   value: totalScenes,    icon:<NodeIndexOutlined/>,  color:'#3B82F6'},
                         {label:'已执行场景', value: executedCount,  icon:<BarChartOutlined/>,   color:'#10B981'},
                         {label:'稳定场景',   value: stableCount,    icon:<CheckCircleOutlined/>,color:'#8B5CF6'},
-                        {label:'平均匹配率', value: `${avgMatchRate}%`, icon:<InboxOutlined/>,  color:'#F59E0B'},
                     ].map(k => (
                         <Col key={k.label} xs={12} sm={6}>
                             <Card>
@@ -149,6 +198,37 @@ export const DashboardPage = () => {
                             </Card>
                         </Col>
                     ))}
+                    <Col xs={24} sm={12} lg={6}>
+                        <Card>
+                            <div style={{display:'flex', alignItems:'flex-start', gap:10}}>
+                                <div style={{
+                                    width:40, height:40, borderRadius:'50%',
+                                    background:'#F59E0B18', border:'1.5px solid #F59E0B30',
+                                    display:'flex', alignItems:'center', justifyContent:'center',
+                                    fontSize:18, color:'#F59E0B', flexShrink:0,
+                                }}>
+                                    <InboxOutlined/>
+                                </div>
+                                <div style={{flex:1}}>
+                                    <div style={{fontSize:11, color:'#94A3B8', fontWeight:600, letterSpacing:'0.03em'}}>
+                                        {kpiScene ? `${kpiScene.label} 走廊利用率` : '平均走廊利用率'}
+                                    </div>
+                                    <div style={{display:'flex', justifyContent:'space-between', gap:10, marginTop:8}}>
+                                        {corridorKpis.map(corridor => (
+                                            <div key={corridor.key} style={{flex:1, minWidth:0}}>
+                                                <div style={{fontSize:10, color:corridor.color, fontWeight:700, lineHeight:1.4}}>
+                                                    {corridor.key}
+                                                </div>
+                                                <div style={{fontSize:22, fontWeight:800, fontFamily:'var(--font-mono)', color:'#1E293B'}}>
+                                                    {formatPercent(corridor.value)}%
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </Card>
+                    </Col>
                 </Row>
 
                 {/* 场景卡片网格 */}

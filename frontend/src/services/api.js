@@ -166,6 +166,7 @@ export const executeAlgorithmAPI = {
 };
 
 export const analyticsAPI = {
+    corridorUtilization: () => api.get('/corridor-utilization'),
     routeUtilization: (sceneId) => api.get('/analytics/route-utilization', { params: sceneId ? { scene_id: sceneId } : {} }),
     odFlow:           (sceneId) => api.get('/analytics/od-flow',            { params: sceneId ? { scene_id: sceneId } : {} }),
     timeValue:        (sceneId) => api.get('/analytics/time-value',         { params: sceneId ? { scene_id: sceneId } : {} }),
