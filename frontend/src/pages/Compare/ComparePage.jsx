@@ -42,7 +42,7 @@ const ComparePage = () => {
             ]);
             const sceneList = sc?.data || [];
             const cmpData   = cmp?.data || [];
-            const corData   = cor?.data?.scenes || [];
+            const corData   = cor?.scenes || [];
             setScenes(sceneList);
             setCompare(cmpData);
             setCorridorData(corData);
