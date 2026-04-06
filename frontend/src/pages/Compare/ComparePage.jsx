@@ -6,10 +6,19 @@ import {
     RadarChart, Radar, PolarGrid, PolarAngleAxis,
     ResponsiveContainer, Tooltip as RTooltip, XAxis, YAxis,
 } from 'recharts';
-import {CheckCircleOutlined, ExclamationCircleOutlined, ReloadOutlined} from '@ant-design/icons';
+import {CheckCircleOutlined, ReloadOutlined} from '@ant-design/icons';
 import api from '../../services/api';
+import {analyticsAPI} from '../../services/api';
 
-// ── 颜色池（11个场景各一色）──────────────────────────────────
+// ── 走廊颜色常量 ──────────────────────────────────────
+const CORRIDOR_COLORS = {
+    '西部陆海新通道': '#3B82F6',
+    '长江经济带': '#10B981',
+    '跨境公路': '#F59E0B',
+};
+const CORRIDOR_KEYS = ['西部陆海新通道', '长江经济带', '跨境公路'];
+
+// ── 场景颜色池 ────────────────────────────────────────
 const PALETTE = [
     '#3B82F6','#10B981','#F59E0B','#EF4444','#8B5CF6',
     '#06B6D4','#84CC16','#F97316','#EC4899','#6366F1','#14B8A6',
@@ -18,6 +27,7 @@ const PALETTE = [
 const ComparePage = () => {
     const [scenes, setScenes]       = useState([]);
     const [compare, setCompare]     = useState([]);
+    const [corridorData, setCorridorData] = useState([]);
     const [selected, setSelected]   = useState(new Set());
     const [loading, setLoading]     = useState(false);
     const [noData, setNoData]       = useState(false);
@@ -25,16 +35,18 @@ const ComparePage = () => {
     const loadAll = useCallback(async () => {
         setLoading(true);
         try {
-            const [sc, cmp] = await Promise.all([
+            const [sc, cmp, cor] = await Promise.all([
                 api.get('/scenes'),
                 api.get('/compare'),
+                analyticsAPI.corridorUtilization(),
             ]);
             const sceneList = sc?.data || [];
             const cmpData   = cmp?.data || [];
+            const corData   = cor?.data?.scenes || [];
             setScenes(sceneList);
             setCompare(cmpData);
+            setCorridorData(corData);
             setNoData(cmpData.length === 0);
-            // 默认全选有结果的场景
             setSelected(new Set(cmpData.map(r => r.scene_id)));
         } catch (_) {} finally { setLoading(false); }
     }, []);
@@ -43,6 +55,7 @@ const ComparePage = () => {
 
     // 仅展示已选中的场景
     const rows = compare.filter(r => selected.has(r.scene_id));
+    const corridorRows = corridorData.filter(r => selected.has(r.scene_id));
 
     const toggleScene = (id) => setSelected(prev => {
         const next = new Set(prev);
@@ -55,11 +68,38 @@ const ComparePage = () => {
         return PALETTE[all.indexOf(id) % PALETTE.length];
     };
 
+    // ── 走廊利用率堆叠柱状图数据 ────────────────────────────
+    const corridorBarData = useMemo(() => {
+        return corridorRows.map(r => {
+            const entry = { label: r.label, scene_id: r.scene_id };
+            CORRIDOR_KEYS.forEach(k => {
+                entry[k] = r.corridors?.[k]?.utilization || 0;
+            });
+            return entry;
+        });
+    }, [corridorRows]);
+
+    // ── 补贴场景走廊利用率趋势数据 ───────────────────────────
+    const subsidyTrendData = useMemo(() => {
+        return corridorRows
+            .filter(r => r.sub || r.label === '政府补贴')
+            .map(r => {
+                const entry = { pct: r.sub || r.label };
+                CORRIDOR_KEYS.forEach(k => {
+                    entry[k] = r.corridors?.[k]?.utilization || 0;
+                });
+                return entry;
+            });
+    }, [corridorRows]);
+
+    // ── 三大场景对比数据（基准/时间价值/全额补贴）──────────
+    const mainSceneCompare = useMemo(() => {
+        return corridorRows.filter(r => !r.sub && ['运价+时间', '时间价值', '政府补贴'].includes(r.label));
+    }, [corridorRows]);
+
     // ── 路线分流量对比数据 ────────────────────────────────────
-    // 格式：[{route: '1', 场景A: 5, 场景B: 7, ...}, ...]
     const routeDistData = useMemo(() => {
         if (!rows.length) return { chartData: [], sceneLabels: [] };
-        // 收集所有路线ID（按数字排序）
         const allRoutes = new Set();
         rows.forEach(r => Object.keys(r.route_distribution || {}).forEach(k => allRoutes.add(k)));
         const sortedRoutes = [...allRoutes].sort((a, b) => parseInt(a) - parseInt(b));
@@ -73,15 +113,14 @@ const ComparePage = () => {
         return { chartData, sceneLabels: rows.map(r => r.label) };
     }, [rows]);
 
-    // ── 摘要卡 KPIs ──────────────────────────────────────────
-    const bestMatch = rows.reduce((b, r) => r.matching_rate > (b?.matching_rate || 0) ? r : b, null);
-    const bestCont  = rows.reduce((b, r) => r.container_rate > (b?.container_rate || 0) ? r : b, null);
-    const fastCPU   = rows.reduce((b, r) => r.cpu_time < (b?.cpu_time ?? Infinity) ? r : b, null);
-    const stableN   = rows.filter(r => r.is_stable).length;
+    // ── KPI: 三大场景走廊利用率 ──────────────────────────
+    const kpiBase = corridorRows.find(r => r.label === '运价+时间');
+    const kpiTime = corridorRows.find(r => r.label === '时间价值');
+    const kpiSub  = corridorRows.find(r => r.label === '政府补贴');
 
-    // ── 表格列 ───────────────────────────────────────────────
+    // ── 表格列（走廊利用率替代匹配率）──────────────────────
     const columns = [
-        {title: '场景', dataIndex: 'label', key: 'label', width: 180,
+        {title: '场景', dataIndex: 'label', key: 'label', width: 150,
             render: (t, r) => (
                 <Space>
                     <span style={{display:'inline-block', width:10, height:10, borderRadius:2, background: colorOf(r.scene_id)}}/>
@@ -89,19 +128,29 @@ const ComparePage = () => {
                 </Space>
             )},
         {title: '分组', dataIndex: 'group', key: 'group', width: 100, render: t => <Tag style={{fontSize:11}}>{t}</Tag>},
-        {title: '匹配率', dataIndex: 'matching_rate', key: 'mr', width: 90, align: 'right', sorter: (a,b) => a.matching_rate - b.matching_rate,
-            render: v => <span style={{color: v >= 70 ? '#10B981' : '#F59E0B', fontWeight:700, fontFamily:'var(--font-mono)'}}>{v}%</span>},
-        {title: '集装箱率', dataIndex: 'container_rate', key: 'cr', width: 95, align: 'right', sorter: (a,b) => a.container_rate - b.container_rate,
-            render: v => <span style={{fontFamily:'var(--font-mono)'}}>{v}%</span>},
-        {title: '已匹配', dataIndex: 'matched_shipments', key: 'ms', width: 80, align: 'right'},
-        {title: '未匹配', dataIndex: 'unmatched_shipments', key: 'us', width: 80, align: 'right'},
-        {title: '平均运费', dataIndex: 'avg_route_cost', key: 'cost', width: 95, align: 'right', sorter: (a,b) => a.avg_route_cost - b.avg_route_cost,
-            render: v => <span style={{fontFamily:'var(--font-mono)'}}>{v?.toLocaleString()}</span>},
+        ...CORRIDOR_KEYS.map(k => ({
+            title: k,
+            key: k,
+            width: 120,
+            align: 'right',
+            render: (_, record) => {
+                const cRow = corridorRows.find(c => c.scene_id === record.scene_id);
+                const val = cRow?.corridors?.[k]?.utilization;
+                if (val == null) return '—';
+                const color = val >= 70 ? '#10B981' : val >= 40 ? '#3B82F6' : '#F59E0B';
+                return <span style={{color, fontWeight:700, fontFamily:'var(--font-mono)'}}>{val}%</span>;
+            },
+            sorter: (a, b) => {
+                const ca = corridorRows.find(c => c.scene_id === a.scene_id)?.corridors?.[k]?.utilization || 0;
+                const cb = corridorRows.find(c => c.scene_id === b.scene_id)?.corridors?.[k]?.utilization || 0;
+                return ca - cb;
+            },
+        })),
         {title: '迭代次数', dataIndex: 'iteration_num', key: 'it', width: 85, align: 'right'},
         {title: 'CPU(s)', dataIndex: 'cpu_time', key: 'cpu', width: 80, align: 'right', sorter: (a,b) => a.cpu_time - b.cpu_time,
             render: v => <span style={{fontFamily:'var(--font-mono)'}}>{v}</span>},
         {title: '稳定', dataIndex: 'is_stable', key: 'stable', width: 65, align: 'center',
-            render: v => v ? <CheckCircleOutlined style={{color:'#10B981'}}/> : <ExclamationCircleOutlined style={{color:'#F59E0B'}}/>},
+            render: v => v ? <CheckCircleOutlined style={{color:'#10B981'}}/> : <span style={{color:'#F59E0B'}}>✗</span>},
     ];
 
     const Space = ({children, ...p}) => <div style={{display:'flex', alignItems:'center', gap:6, ...p}}>{children}</div>;
@@ -144,83 +193,95 @@ const ComparePage = () => {
                     </Row>
                 </Card>
 
-                {/* KPI 摘要 */}
-                <Row gutter={[12, 12]} style={{marginBottom:16}}>
-                    {[
-                        {label:'最高匹配率', value: bestMatch ? `${bestMatch.matching_rate}%` : '—', sub: bestMatch?.label, color:'#10B981'},
-                        {label:'最高集装箱率', value: bestCont ? `${bestCont.container_rate}%` : '—', sub: bestCont?.label, color:'#3B82F6'},
-                        {label:'最快CPU', value: fastCPU ? `${fastCPU.cpu_time}s` : '—', sub: fastCPU?.label, color:'#8B5CF6'},
-                        {label:'稳定场景数', value: `${stableN} / ${rows.length}`, sub: '匹配结果稳定', color:'#F59E0B'},
-                    ].map(k => (
-                        <Col key={k.label} xs={12} sm={6}>
-                            <Card>
-                                <Statistic title={k.label} value={k.value} valueStyle={{color:k.color, fontSize:20, fontFamily:'var(--font-mono)'}}/>
-                                <div style={{fontSize:11, color:'#94A3B8', marginTop:3}}>{k.sub}</div>
-                            </Card>
-                        </Col>
-                    ))}
-                </Row>
+                {/* KPI: 三大场景走廊利用率对比 */}
+                {mainSceneCompare.length >= 2 && (
+                    <Row gutter={[12, 12]} style={{marginBottom:16}}>
+                        {mainSceneCompare.map(scene => (
+                            <Col key={scene.scene_id} xs={24} sm={8}>
+                                <Card title={scene.label} 
+                                    headStyle={{fontSize:13, fontWeight:600, textAlign:'center'}}
+                                    bodyStyle={{padding:'12px 16px'}}>
+                                    <Row gutter={8}>
+                                        {CORRIDOR_KEYS.map(k => {
+                                            const val = scene.corridors?.[k]?.utilization || 0;
+                                            return (
+                                                <Col key={k} span={8} style={{textAlign:'center'}}>
+                                                    <div style={{fontSize:20, fontWeight:700, fontFamily:'var(--font-mono)', color: CORRIDOR_COLORS[k]}}>
+                                                        {val}%
+                                                    </div>
+                                                    <div style={{fontSize:10, color:'#94A3B8', marginTop:2}}>{k}</div>
+                                                </Col>
+                                            );
+                                        })}
+                                    </Row>
+                                </Card>
+                            </Col>
+                        ))}
+                    </Row>
+                )}
 
                 {/* 图表区 */}
                 <Row gutter={[16, 16]}>
-                    {/* 匹配率对比柱状图 */}
+                    {/* 走廊利用率堆叠柱状图 */}
                     <Col xs={24} lg={12}>
-                        <Card title="匹配率 & 集装箱匹配率对比"
+                        <Card title="走廊利用率对比"
                             extra={<span style={{fontSize:12, color:'#94A3B8'}}>%</span>}>
                             <ResponsiveContainer width="100%" height={280}>
-                                <BarChart data={rows} margin={{top:5, right:10, left:-10, bottom:60}}>
+                                <BarChart data={corridorBarData} margin={{top:5, right:10, left:-10, bottom:60}}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9"/>
                                     <XAxis dataKey="label" fontSize={10} angle={-35} textAnchor="end" interval={0} tick={{fill:'#64748B'}}/>
                                     <YAxis domain={[0,100]} unit="%" fontSize={11} tick={{fill:'#64748B'}}/>
                                     <RTooltip formatter={v => [`${v}%`]} contentStyle={{fontSize:12, borderRadius:8}}/>
                                     <Legend wrapperStyle={{fontSize:11, paddingTop:4}}/>
-                                    <Bar dataKey="matching_rate"  name="匹配率(%)" radius={[3,3,0,0]}>
-                                        {rows.map(r => <Cell key={r.scene_id} fill={colorOf(r.scene_id)}/>)}
-                                    </Bar>
-                                    <Bar dataKey="container_rate" name="集装箱率(%)" fill="#CBD5E1" radius={[3,3,0,0]}/>
+                                    {CORRIDOR_KEYS.map(k => (
+                                        <Bar key={k} dataKey={k} name={k} fill={CORRIDOR_COLORS[k]} radius={[2,2,0,0]}/>
+                                    ))}
                                 </BarChart>
                             </ResponsiveContainer>
                         </Card>
                     </Col>
 
-                    {/* 平均运费折线 */}
-                    <Col xs={24} lg={12}>
-                        <Card title="各场景平均运费趋势"
-                            extra={<span style={{fontSize:12, color:'#94A3B8'}}>CNY</span>}>
-                            <ResponsiveContainer width="100%" height={280}>
-                                <LineChart data={rows} margin={{top:5, right:10, left:0, bottom:60}}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9"/>
-                                    <XAxis dataKey="label" fontSize={10} angle={-35} textAnchor="end" interval={0} tick={{fill:'#64748B'}}/>
-                                    <YAxis fontSize={11} tick={{fill:'#64748B'}}/>
-                                    <RTooltip formatter={v => [v?.toLocaleString(), '平均运费']} contentStyle={{fontSize:12, borderRadius:8}}/>
-                                    <Line
-                                        type="monotone" dataKey="avg_route_cost" name="平均运费"
-                                        stroke="#3B82F6" strokeWidth={2} dot={{r:4, fill:'#3B82F6'}}
-                                    />
-                                </LineChart>
-                            </ResponsiveContainer>
-                        </Card>
-                    </Col>
-
-                    {/* 雷达图（政府补贴子场景） */}
-                    {rows.filter(r => r.group === '政府补贴').length >= 3 && (
+                    {/* 补贴比例 vs 走廊利用率趋势 */}
+                    {subsidyTrendData.length >= 2 && (
                         <Col xs={24} lg={12}>
-                            <Card title="政府补贴场景综合雷达图"
-                                extra={<Tooltip title="各指标已归一化到0-100"><span style={{fontSize:12, color:'#94A3B8', cursor:'help'}}>? 说明</span></Tooltip>}>
+                            <Card title="补贴比例 vs 走廊利用率变化趋势"
+                                extra={<span style={{fontSize:12, color:'#94A3B8'}}>40%是关键分水岭</span>}>
                                 <ResponsiveContainer width="100%" height={280}>
-                                    <RadarChart data={
-                                        rows.filter(r => r.group === '政府补贴').map(r => ({
-                                            label: r.sub || r.label,
-                                            匹配率:   r.matching_rate,
-                                            集装箱率: r.container_rate,
-                                            稳定性:   r.is_stable ? 100 : 0,
-                                            速度:     r.cpu_time > 0 ? Math.max(0, 100 - r.cpu_time * 10) : 50,
-                                        }))
-                                    }>
+                                    <LineChart data={subsidyTrendData} margin={{top:5, right:10, left:-10, bottom:5}}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9"/>
+                                        <XAxis dataKey="pct" fontSize={11} tick={{fill:'#64748B'}}/>
+                                        <YAxis domain={[0,100]} unit="%" fontSize={11} tick={{fill:'#64748B'}}/>
+                                        <RTooltip formatter={v => [`${v}%`]} contentStyle={{fontSize:12, borderRadius:8}}/>
+                                        <Legend wrapperStyle={{fontSize:11}}/>
+                                        {CORRIDOR_KEYS.map(k => (
+                                            <Line key={k} type="monotone" dataKey={k} name={k}
+                                                stroke={CORRIDOR_COLORS[k]} strokeWidth={2} dot={{r:4}}/>
+                                        ))}
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </Card>
+                        </Col>
+                    )}
+
+                    {/* 雷达图（三大场景走廊利用率） */}
+                    {mainSceneCompare.length >= 2 && (
+                        <Col xs={24} lg={12}>
+                            <Card title="三大场景走廊利用率雷达图">
+                                <ResponsiveContainer width="100%" height={280}>
+                                    <RadarChart data={CORRIDOR_KEYS.map(k => {
+                                        const entry = { corridor: k };
+                                        mainSceneCompare.forEach(s => {
+                                            entry[s.label] = s.corridors?.[k]?.utilization || 0;
+                                        });
+                                        return entry;
+                                    })}>
                                         <PolarGrid stroke="#E2E8F0"/>
-                                        <PolarAngleAxis dataKey="label" fontSize={11}/>
-                                        <Radar name="匹配率" dataKey="匹配率" stroke="#3B82F6" fill="#3B82F6" fillOpacity={0.15}/>
-                                        <Radar name="集装箱率" dataKey="集装箱率" stroke="#10B981" fill="#10B981" fillOpacity={0.15}/>
+                                        <PolarAngleAxis dataKey="corridor" fontSize={11}/>
+                                        {mainSceneCompare.map((s, i) => (
+                                            <Radar key={s.scene_id} name={s.label}
+                                                dataKey={s.label}
+                                                stroke={PALETTE[i]} fill={PALETTE[i]} fillOpacity={0.15}/>
+                                        ))}
                                         <Legend wrapperStyle={{fontSize:11}}/>
                                         <RTooltip contentStyle={{fontSize:12, borderRadius:8}}/>
                                     </RadarChart>
@@ -228,34 +289,6 @@ const ComparePage = () => {
                             </Card>
                         </Col>
                     )}
-
-                    {/* 政府补贴 - 匹配率随补贴率变化折线 */}
-                    {(() => {
-                        const subsidyRows = rows.filter(r => r.sub && r.sub.includes('补贴'));
-                        if (subsidyRows.length < 2) return null;
-                        const data = subsidyRows.map(r => ({
-                            pct: r.sub,
-                            匹配率: r.matching_rate,
-                            集装箱率: r.container_rate,
-                        }));
-                        return (
-                            <Col xs={24} lg={12}>
-                                <Card title="政府补贴比例 vs 匹配效果">
-                                    <ResponsiveContainer width="100%" height={280}>
-                                        <LineChart data={data} margin={{top:5, right:10, left:-10, bottom:5}}>
-                                            <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9"/>
-                                            <XAxis dataKey="pct" fontSize={11} tick={{fill:'#64748B'}}/>
-                                            <YAxis domain={[0,100]} unit="%" fontSize={11} tick={{fill:'#64748B'}}/>
-                                            <RTooltip formatter={v => [`${v}%`]} contentStyle={{fontSize:12, borderRadius:8}}/>
-                                            <Legend wrapperStyle={{fontSize:11}}/>
-                                            <Line type="monotone" dataKey="匹配率" stroke="#3B82F6" strokeWidth={2} dot={{r:4}}/>
-                                            <Line type="monotone" dataKey="集装箱率" stroke="#10B981" strokeWidth={2} dot={{r:4}} strokeDasharray="4 2"/>
-                                        </LineChart>
-                                    </ResponsiveContainer>
-                                </Card>
-                            </Col>
-                        );
-                    })()}
 
                     {/* 各路线分流量对比 */}
                     {routeDistData.chartData.length > 0 && (
@@ -279,7 +312,7 @@ const ComparePage = () => {
                         </Col>
                     )}
 
-                    {/* 同路线跨场景对比折线（路线1~5的分流量随场景变化） */}
+                    {/* 主要路线跨场景分流变化 */}
                     {routeDistData.chartData.length > 0 && rows.length >= 2 && (
                         <Col xs={24}>
                             <Card title="主要路线跨场景分流变化"
@@ -301,7 +334,6 @@ const ComparePage = () => {
                                         <RTooltip contentStyle={{fontSize:12, borderRadius:8}}/>
                                         <Legend wrapperStyle={{fontSize:11, paddingTop:8}}/>
                                         {(() => {
-                                            // 取分流量总和最大的前8条路线
                                             const totals = {};
                                             rows.forEach(r => Object.entries(r.route_distribution || {}).forEach(([k,v]) => {
                                                 totals[k] = (totals[k] || 0) + v;
@@ -322,7 +354,7 @@ const ComparePage = () => {
 
                     {/* 详细数据表 */}
                     <Col xs={24}>
-                        <Card title="详细对比数据">
+                        <Card title="详细对比数据（走廊利用率 %）">
                             <Table
                                 columns={columns}
                                 dataSource={rows}
