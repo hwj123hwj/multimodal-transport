@@ -69,7 +69,6 @@ jobs:
           rsync -azv --delete \
             --exclude='.git' \
             --exclude='frontend/node_modules' \
-            --exclude='frontend/src' \
             --exclude='frontend/public' \
             --exclude='data/' \
             --exclude='cmake-build-debug/result/' \
