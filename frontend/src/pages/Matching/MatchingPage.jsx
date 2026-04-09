@@ -322,30 +322,7 @@ const MatchingPage = () => {
                 </Col>
             </Row>
 
-            {/* 分类利用率图表 */}
-            <Card style={{marginBottom: 24}}>
-                <div style={{height: 200}}>
-                    <ResponsiveContainer width="100%" height="100%">
-                        <BarChart
-                            data={categoryUtilization}
-                            margin={{
-                                top: 20,
-                                right: 30,
-                                left: 20,
-                                bottom: 5,
-                            }}
-                            barSize={40} // 调整柱状图宽度，使其更细
-                        >
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="name" />
-                            <YAxis domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
-                            <Tooltip formatter={(value) => [`${value}%`, '路线利用率']} />
-                            <Legend />
-                            <Bar dataKey="利用率" fill="#1890ff" name="路线利用率" />
-                        </BarChart>
-                    </ResponsiveContainer>
-                </div>
-            </Card>
+            {/* 分类利用率图表 - 已移除 */}
 
             {/* 地图和详情区域 */}
             <Row gutter={16}>
