@@ -116,12 +116,32 @@ const MatchingAnimation = () => {
                 let matchingsData = [];
                 if (activeId) {
                     const res = await api.get(`/scenes/${activeId}/matchings`);
-                    matchingsData = res?.data || [];
+                    const raw = res?.data;
+                    // scenes/:id/matchings 返回可能是数组或对象
+                    if (Array.isArray(raw)) {
+                        matchingsData = raw;
+                    } else if (raw?.shipments) {
+                        matchingsData = raw.shipments;
+                    } else if (raw?.data?.shipments) {
+                        matchingsData = raw.data.shipments;
+                    }
                 } else {
                     const res = await api.get('/matchings');
-                    matchingsData = res?.data?.shipments || [];
+                    const raw = res?.data;
+                    // /matchings 返回 [ { total_shipments, shipments: [...] } ]
+                    if (Array.isArray(raw) && raw.length > 0 && raw[0]?.shipments) {
+                        matchingsData = raw[0].shipments;
+                    } else if (raw?.shipments) {
+                        matchingsData = raw.shipments;
+                    } else if (raw?.data?.shipments) {
+                        matchingsData = raw.data.shipments;
+                    } else if (Array.isArray(raw)) {
+                        matchingsData = raw;
+                    }
                 }
-                setMatchings(matchingsData);
+                // 过滤掉 Self 和未匹配的
+                const matched = matchingsData.filter(m => m.assigned_route && m.assigned_route !== 'Self');
+                setMatchings(matched);
 
                 // 加载前5个货物的溯源详情
                 const details = {};
