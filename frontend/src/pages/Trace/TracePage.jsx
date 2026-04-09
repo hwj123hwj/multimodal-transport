@@ -62,73 +62,98 @@ const TracePage = () => {
         {
             title: '排名',
             key: 'rank',
-            width: 80,
-            render: (_, record, index) => index + 1
+            width: 60,
+            render: (_, record, index) => (
+                <span style={{fontWeight: 'bold', fontSize: 16, color: index === 0 ? '#1890ff' : '#666'}}>
+                    {index + 1}
+                </span>
+            )
         },
         {
             title: '路线ID',
             dataIndex: ['route_id'],
             key: 'route_id',
-            width: 80
+            width: 70
+        },
+        {
+            title: '通道',
+            key: 'route_category',
+            width: 120,
+            render: (_, record) => {
+                const category = record.route_info?.route_category;
+                if (!category) return '-';
+                const colorMap = {
+                    '西海路新通道': 'green',
+                    '长江经济带': 'blue',
+                    '跨境公路': 'orange',
+                };
+                return <Tag color={colorMap[category] || 'default'}>{category}</Tag>;
+            }
         },
         {
             title: '路线详情',
             key: 'route_detail',
-            width: 200,
+            width: 180,
             render: (_, record) => {
                 const routeInfo = record.route_info;
                 const nodes = routeInfo?.nodes || [];
-                if (nodes.length < 2) {
-                    return '-';
-                }
+                if (nodes.length < 2) return '-';
                 return (
                     <div>
                         <div style={{fontWeight: 'bold'}}>
                             {nodes[0]} → {nodes[nodes.length - 1]}
                         </div>
                         <div style={{color: '#666', fontSize: '12px'}}>
-                            途经: {nodes.slice(1, -1).join('   ')}
+                            途经: {nodes.slice(1, -1).join(' → ')}
                         </div>
                     </div>
                 );
             }
         },
         {
-            title: '匹配成本',
+            title: '综合评分',
             key: 'score',
-            width: 120,
-            render: (_, record) => (
-                <span style={{fontWeight: 'bold', color: '#1890ff'}}>
-                    {formatCurrency(record.score)}
-                </span>
-            ),
+            width: 110,
+            render: (_, record, index) => {
+                // 将 matched_cost 转换为百分制评分（成本越低分越高）
+                const maxScore = Math.max(...(traceData?.routes?.map(r => r.score) || [1]));
+                const minScore = Math.min(...(traceData?.routes?.map(r => r.score) || [0]));
+                const range = maxScore - minScore || 1;
+                const normalized = ((maxScore - record.score) / range) * 40 + 60; // 60-100分
+                return (
+                    <div style={{textAlign: 'center'}}>
+                        <div style={{fontWeight: 'bold', fontSize: 18, color: normalized >= 90 ? '#52c41a' : normalized >= 75 ? '#1890ff' : '#faad14'}}>
+                            {normalized.toFixed(1)}
+                        </div>
+                        <div style={{fontSize: 11, color: '#999'}}>分</div>
+                    </div>
+                );
+            },
             sorter: (a, b) => a.score - b.score,
             defaultSortOrder: 'ascend'
         },
         {
             title: '运输成本',
             key: 'transport_cost',
-            width: 120,
+            width: 100,
             render: (_, record) => {
-                const routeInfo = record.route_info;
-                const totalCost = routeInfo?.total_cost || 0;
-                return formatCurrency(totalCost);
+                const totalCost = record.route_info?.total_cost || 0;
+                return <span>¥{totalCost.toLocaleString()}</span>;
             }
         },
         {
-            title: '时间成本',
+            title: '运输时间',
             key: 'time_cost',
-            width: 120,
+            width: 90,
             render: (_, record) => {
-                const routeInfo = record.route_info;
-                const totalTime = routeInfo?.total_travel_time || 0;
-                return formatTime(totalTime);
+                const totalTime = record.route_info?.total_travel_time || 0;
+                return <span>{totalTime}h</span>;
             }
         },
         {
             title: '状态',
             key: 'status',
-            width: 100,
+            width: 80,
             render: (_, record) => getStatusTag(record.route_id)
         }
     ];
@@ -206,7 +231,7 @@ const TracePage = () => {
                     <Card title="路线可视化">
                         <div style={{height: 500}}>
                             <MapViewer
-                                mode="matching"
+                                mode="routes"
                                 matchings={[]}
                                 routes={mapRoutes}
                                 shipments={[traceData.shipment_info]}
