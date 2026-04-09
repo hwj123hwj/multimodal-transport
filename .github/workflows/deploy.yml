@@ -62,15 +62,24 @@ jobs:
       # ── 4. 同步代码到服务器（排除运行时数据，避免覆盖用户数据）────
       - name: Sync to server
         run: |
-          rsync -az --delete \
+          echo "=== 开始同步代码到服务器 ==="
+          echo "检查 build 目录是否存在:"
+          ls -la frontend/build/ || echo "build 目录不存在！"
+
+          rsync -azv --delete \
             --exclude='.git' \
             --exclude='frontend/node_modules' \
             --exclude='frontend/src' \
             --exclude='frontend/public' \
             --exclude='data/' \
             --exclude='cmake-build-debug/result/' \
-            -e "ssh -i ~/.ssh/deploy_key" \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
             ./ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/opt/tms/
+
+          echo "=== 同步完成 ==="
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
+            "ls -la /opt/tms/frontend/build/ || echo '服务器上 build 目录不存在'"
 
       # ── 5a. Dockerfile 等基础文件变了：重建镜像并滚动重启 ─────────
       - name: Rebuild backend image (if needed)
