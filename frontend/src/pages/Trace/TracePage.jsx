@@ -30,11 +30,19 @@ const TracePage = () => {
             const formattedData = {
                 shipment_id: responseData.shipment?.shipment_id || parseInt(id),
                 shipment_info: responseData.shipment,
-                routes: (responseData.candidates || []).map(c => ({
-                    route_id: c.route_id,
-                    score: c.matched_cost,
-                    route_info: c
-                })),
+                routes: (() => {
+                    const candidates = responseData.candidates || [];
+                    const assignedId = responseData.assigned_route_id;
+                    // 排序：实际选中的排第一，其余按匹配成本升序
+                    return [
+                        ...candidates.filter(c => c.route_id === assignedId),
+                        ...candidates.filter(c => c.route_id !== assignedId).sort((a, b) => a.matched_cost - b.matched_cost)
+                    ].map(c => ({
+                        route_id: c.route_id,
+                        score: c.matched_cost,
+                        route_info: c
+                    }));
+                })(),
                 selected_route_id: responseData.assigned_route_id
             };
 
@@ -63,11 +71,16 @@ const TracePage = () => {
             title: '排名',
             key: 'rank',
             width: 60,
-            render: (_, record, index) => (
-                <span style={{fontWeight: 'bold', fontSize: 16, color: index === 0 ? '#1890ff' : '#666'}}>
-                    {index + 1}
-                </span>
-            )
+            render: (_, record, index) => {
+                const isSelected = record.route_id === traceData?.selected_route_id;
+                return (
+                    <div style={{textAlign: 'center'}}>
+                        <span style={{fontWeight: 'bold', fontSize: 16, color: isSelected ? '#52c41a' : '#666'}}>
+                            {isSelected ? '★' : index + 1}
+                        </span>
+                    </div>
+                );
+            }
         },
         {
             title: '路线ID',
@@ -241,15 +254,68 @@ const TracePage = () => {
                         </div>
                     </Card>
 
-                    {/* 评分说明 */}
-                    <Card title="评分说明" style={{marginTop: 24, backgroundColor: '#f5f5f5'}}>
-                        <div style={{color: '#666', lineHeight: 1.8}}>
-                            <p><strong>匹配成本计算公式：</strong></p>
-                            <p>匹配成本 = 运费 × 需求量 × 合作系数 + 时间 × 需求量 × 时间价值</p>
-                            <p style={{marginTop: 12, fontSize: '12px', color: '#999'}}>
-                                * 运费和时间均取起点位置对应的分段成本<br/>
-                                * 匹配成本越低，排名越靠前，越容易被算法选中
-                            </p>
+                    {/* 匹配决策说明 */}
+                    <Card title="📋 匹配决策说明" style={{marginTop: 24, backgroundColor: '#fafafa'}}>
+                        <div style={{lineHeight: 2}}>
+                            <p><strong>一、算法概述</strong></p>
+                            <p>本系统采用 <strong>Gale-Shapley 稳定匹配算法</strong>（N对1），同时考虑货物和路线的双方偏好，求得稳定匹配解。</p>
+
+                            <p style={{marginTop: 16}}><strong>二、货物偏好构建</strong></p>
+                            <p>对每条候选路线计算匹配成本，按成本从低到高排序，形成货物偏好列表：</p>
+                            <div style={{background: '#fff', padding: 12, borderRadius: 6, margin: '8px 0', fontFamily: 'monospace', fontSize: 13}}>
+                                匹配成本 = 起点运费 × 需求量 × 合作系数 + 起点时间 × 需求量 × 时间价值
+                            </div>
+                            {traceData && (() => {
+                                const sorted = [...traceData.routes].sort((a, b) => a.score - b.score);
+                                return (
+                                    <div style={{background: '#fff', padding: 12, borderRadius: 6, margin: '8px 0'}}>
+                                        <p style={{marginBottom: 8, fontWeight: 'bold'}}>本货物偏好排序：</p>
+                                        {sorted.map((r, i) => (
+                                            <div key={r.route_id} style={{display: 'flex', gap: 16, padding: '4px 0', borderBottom: '1px solid #f0f0f0'}}>
+                                                <span>偏好{i + 1}：</span>
+                                                <span>路线#{r.route_id}</span>
+                                                <span>({r.route_info?.route_category || '-'})</span>
+                                                <span>匹配成本 ¥{(r.score || 0).toLocaleString()}</span>
+                                                {r.route_id === traceData.selected_route_id && <Tag color="success">✅ 最终选中</Tag>}
+                                            </div>
+                                        ))}
+                                    </div>
+                                );
+                            })()}
+
+                            <p style={{marginTop: 16}}><strong>三、路线偏好构建</strong></p>
+                            <p>路线按运输收入（运费 × 承运量）从高到低排序，优先选择能带来更高收入的货物。</p>
+
+                            <p style={{marginTop: 16}}><strong>四、稳定匹配过程</strong></p>
+                            <p>算法执行 Gale-Shapley 双向匹配：</p>
+                            <ol style={{paddingLeft: 20}}>
+                                <li>货物按偏好顺序依次向路线"表白"（请求匹配）</li>
+                                <li>路线收到请求后：若空闲则暂时接受；若已有匹配，则比较新旧货物偏好，选择更优的</li>
+                                <li>被拒绝的货物继续向下一偏好路线请求</li>
+                                <li>重复直到所有货物都匹配完毕或所有偏好都已尝试</li>
+                            </ol>
+
+                            <p style={{marginTop: 16}}><strong>五、本货物匹配结果</strong></p>
+                            {traceData && (() => {
+                                const selected = traceData.routes.find(r => r.route_id === traceData.selected_route_id);
+                                const sorted = [...traceData.routes].sort((a, b) => a.score - b.score);
+                                const selectedRank = sorted.findIndex(r => r.route_id === traceData.selected_route_id) + 1;
+                                return (
+                                    <div style={{background: selectedRank === 1 ? '#f6ffed' : '#fff7e6', padding: 12, borderRadius: 6, margin: '8px 0', border: '1px solid ' + (selectedRank === 1 ? '#b7eb8f' : '#ffd591')}}>
+                                        <p style={{fontWeight: 'bold', marginBottom: 8}}>
+                                            货物 {traceData.shipment_id}（{traceData.shipment_info?.origin_city} → {traceData.shipment_info?.destination_city}）→ 路线#{traceData.selected_route_id}
+                                        </p>
+                                        {selectedRank === 1 ? (
+                                            <p>✅ 该货物成功匹配到其<strong>第一偏好</strong>路线，货物偏好与最终结果完全一致。</p>
+                                        ) : (
+                                            <p>⚠️ 该货物的第<strong>{selectedRank}</strong>偏好路线（成本最低为路线#{sorted[0]?.route_id}），但经过稳定匹配博弈后，最终匹配到路线#{traceData.selected_route_id}。这是因为路线#{sorted[0]?.route_id}可能已被其他对其更具偏好的货物占据，在稳定匹配框架下，当前结果是双方都满意的最优稳定解。</p>
+                                        )}
+                                        {selected && (
+                                            <p>选中路线：{selected.route_info?.route_category}，途经 {selected.route_info?.nodes?.join('→')}，成本 ¥{(selected.route_info?.total_cost || 0).toLocaleString()}，时间 {selected.route_info?.total_travel_time || 0}h</p>
+                                        )}
+                                    </div>
+                                );
+                            })()}
                         </div>
                     </Card>
                 </>
