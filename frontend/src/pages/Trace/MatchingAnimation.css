@@ -1,0 +1,160 @@
+.matching-animation .animation-container {
+    min-height: 500px;
+    display: flex;
+    flex-direction: column;
+}
+
+.matching-animation .animation-columns {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    min-height: 400px;
+    position: relative;
+}
+
+.matching-animation .entity-column {
+    width: 220px;
+    flex-shrink: 0;
+}
+
+.matching-animation .column-title {
+    font-size: 16px;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 16px;
+    padding: 8px;
+    background: #f0f5ff;
+    border-radius: 8px;
+}
+
+.matching-animation .entity-node {
+    padding: 10px 14px;
+    margin-bottom: 10px;
+    border-radius: 10px;
+    border: 2px solid #e2e8f0;
+    background: #fff;
+    transition: all 0.4s ease;
+    position: relative;
+}
+
+.matching-animation .entity-node .node-id {
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.matching-animation .entity-node .node-detail {
+    font-size: 12px;
+    color: #64748b;
+    margin-top: 4px;
+}
+
+.matching-animation .entity-node .node-matched {
+    font-size: 11px;
+    color: #52c41a;
+    margin-top: 4px;
+    font-weight: bold;
+}
+
+/* 活跃状态 */
+.matching-animation .entity-node.active {
+    border-color: #1890ff;
+    box-shadow: 0 0 12px rgba(24, 144, 255, 0.3);
+    transform: scale(1.05);
+}
+
+/* 匹配成功 */
+.matching-animation .entity-node.matched {
+    border-color: #52c41a;
+    background: #f6ffed;
+}
+
+/* 路线拒绝 */
+.matching-animation .entity-node.rejected {
+    border-color: #ff4d4f;
+    animation: flash-red 0.5s ease;
+}
+
+@keyframes flash-red {
+    0%, 100% { background: #fff; }
+    50% { background: #fff1f0; }
+}
+
+/* 连线区域 */
+.matching-animation .connections-area {
+    flex: 1;
+    position: relative;
+    min-width: 200px;
+}
+
+.matching-animation .connections-svg {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.matching-animation .propose-arrow {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 20px;
+    animation: pulse-arrow 1s ease infinite;
+}
+
+@keyframes pulse-arrow {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* 步骤说明 */
+.matching-animation .step-description {
+    margin-top: 24px;
+    padding: 16px;
+    background: #fafafa;
+    border-radius: 8px;
+}
+
+.matching-animation .step-card {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 15px;
+    line-height: 1.6;
+}
+
+.matching-animation .step-card.propose {
+    background: #e6f7ff;
+    border: 1px solid #91d5ff;
+}
+
+.matching-animation .step-card.accept {
+    background: #f6ffed;
+    border: 1px solid #b7eb8f;
+}
+
+.matching-animation .step-card.reject {
+    background: #fff1f0;
+    border: 1px solid #ffa39e;
+}
+
+.matching-animation .step-card.complete {
+    background: #f9f0ff;
+    border: 1px solid #d3adf7;
+}
+
+.matching-animation .step-number {
+    font-weight: bold;
+    color: #1890ff;
+    margin-right: 12px;
+    white-space: nowrap;
+}
+
+/* 控制按钮 */
+.matching-animation .controls {
+    margin-top: 16px;
+    text-align: center;
+    padding: 12px;
+}

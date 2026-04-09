@@ -10,6 +10,7 @@ import DataUploadPage from './pages/DataUpload/DataUploadPage';
 import AnalyticsPage from './pages/Analytics/AnalyticsPage';
 import ComparePage from './pages/Compare/ComparePage';
 import TracePage from './pages/Trace/TracePage';
+import MatchingAnimation from './pages/Trace/MatchingAnimation';
 import './App.css';
 
 // ── Icons (inline SVG, no emoji) ────────────────────────────
@@ -170,7 +171,9 @@ const AppShell = () => {
                         <Route path="/shipments"   element={<ShipmentsPage/>}/>
                         <Route path="/matching"    element={<MatchingPage/>}/>
                         <Route path="/data-upload" element={<DataUploadPage/>}/>
+                        <Route path="/trace"          element={<MatchingAnimation/>}/>
                         <Route path="/trace/:shipmentId" element={<TracePage/>}/>
+                        <Route path="/trace" element={<MatchingAnimation/>}/>
                         <Route path="/analytics"   element={<AnalyticsPage/>}/>
                         <Route path="/compare"     element={<ComparePage/>}/>
                     </Routes>
