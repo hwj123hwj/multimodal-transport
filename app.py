@@ -61,6 +61,7 @@ from app.routes.data_routes import router as data_router
 from app.routes.query_routes import router as query_router
 from app.routes.analytics import router as analytics_router, corridor_router
 from app.routes.scenes import router as scenes_router
+from app.routes.trace import router as trace_router
 
 # 导入错误处理
 from app.utils.error_handlers import register_exception_handlers
@@ -75,6 +76,7 @@ app.include_router(query_router)
 app.include_router(analytics_router)
 app.include_router(scenes_router)
 app.include_router(corridor_router)
+app.include_router(trace_router)
 
 
 # 获取系统信息

@@ -9,6 +9,7 @@ import MatchingPage from './pages/Matching/MatchingPage';
 import DataUploadPage from './pages/DataUpload/DataUploadPage';
 import AnalyticsPage from './pages/Analytics/AnalyticsPage';
 import ComparePage from './pages/Compare/ComparePage';
+import TracePage from './pages/Trace/TracePage';
 import './App.css';
 
 // ── Icons (inline SVG, no emoji) ────────────────────────────
@@ -53,6 +54,12 @@ const IconCompare = () => (
         <path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4m0 0h18"/>
     </svg>
 );
+const IconTrace = () => (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+        <path d="M2 12l10-2 7 20"/>
+    </svg>
+);
 const IconChevronLeft = () => (
     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <polyline points="15 18 9 12 15 6"/>
@@ -71,6 +78,7 @@ const NAV_ITEMS = [
     {key: 'shipments', label: '货物管理', icon: <IconShipments/>},
     {key: 'matching',  label: '匹配结果', icon: <IconMatching/>},
     {key: 'data-upload', label: '数据上传', icon: <IconUpload/>},
+    {key: 'trace',      label: '匹配溯源', icon: <IconTrace/>},
     {key: 'analytics',   label: '数据分析', icon: <IconAnalytics/>},
     {key: 'compare',      label: '对比分析', icon: <IconCompare/>},
 ];
@@ -81,6 +89,7 @@ const PAGE_TITLES = {
     shipments:    '货物管理',
     matching:     '匹配结果',
     'data-upload': '数据上传与算法执行',
+    trace:        '匹配溯源',
     'analytics':   '数据分析',
     'compare':     '对比分析',
 };
@@ -161,6 +170,7 @@ const AppShell = () => {
                         <Route path="/shipments"   element={<ShipmentsPage/>}/>
                         <Route path="/matching"    element={<MatchingPage/>}/>
                         <Route path="/data-upload" element={<DataUploadPage/>}/>
+                        <Route path="/trace/:shipmentId" element={<TracePage/>}/>
                         <Route path="/analytics"   element={<AnalyticsPage/>}/>
                         <Route path="/compare"     element={<ComparePage/>}/>
                     </Routes>

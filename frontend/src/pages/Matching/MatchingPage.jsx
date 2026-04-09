@@ -1,7 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import {Button, Card, Col, message, Row, Select, Space, Statistic, Tag} from 'antd';
-import {AimOutlined, CheckCircleOutlined} from '@ant-design/icons';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import {AimOutlined, CheckCircleOutlined, HistoryOutlined} from '@ant-design/icons';
 import MapViewer from '../../components/MapViewer/MapViewer';
 import DataTable from '../../components/DataTable/DataTable';
 import {matchingAPI} from '../../services/api';
@@ -9,10 +8,12 @@ import api from '../../services/api';
 import {formatCurrency, formatDistance, formatTime} from '../../utils/formatters';
 import {MATCHING_STATUS} from '../../utils/constants';
 import useSceneSelector from '../../hooks/useSceneSelector';
+import {useNavigate} from 'react-router-dom';
 
 const {Option} = Select;
 
 const MatchingPage = () => {
+    const navigate = useNavigate();
     const [matchingResults, setMatchingResults] = useState([]);
     const [matchTable, setMatchTable] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -24,7 +25,6 @@ const MatchingPage = () => {
         matchedShipments: 0,
         avgMatchScore: 0
     });
-    const [categoryUtilization, setCategoryUtilization] = useState([]);
     const {selectScenes, activeId, setActiveId, loadingScenes} = useSceneSelector(true); // 只显示有结果的场景
 
     // 获取匹配结果数据
@@ -60,21 +60,12 @@ const MatchingPage = () => {
             setMatchingResults(detailedMatchings);
             setMatchTable(detailedMatchings);
 
-            if (summaryData.category_utilization_rates) {
-                const utilizationData = Object.entries(summaryData.category_utilization_rates).map(([category, rate]) => ({
-                    name: category,
-                    利用率: rate
-                }));
-                setCategoryUtilization(utilizationData);
-            }
-
             message.success('匹配结果加载成功');
         } catch (error) {
             console.error('获取匹配结果失败:', error);
             setMatchingResults([]);
             setMatchTable([]);
             setStatistics({ total_shipments: 0, unmatched_shipments: 0, matchedShipments: 0, avgMatchScore: 0 });
-            setCategoryUtilization([]);
         } finally {
             setLoading(false);
         }
@@ -242,7 +233,7 @@ const MatchingPage = () => {
         {
             title: '操作',
             key: 'action',
-            width: 80,
+            width: 120,
             render: (_, record) => (
                 <Space size="small">
                     <Button
@@ -252,6 +243,14 @@ const MatchingPage = () => {
                         onClick={() => handleResultSelect(record)}
                     >
                         查看
+                    </Button>
+                    <Button
+                        type="link"
+                        size="small"
+                        icon={<HistoryOutlined/>}
+                        onClick={() => navigate(`/trace/${record.shipment_id}`)}
+                    >
+                        溯源
                     </Button>
                 </Space>
             )
