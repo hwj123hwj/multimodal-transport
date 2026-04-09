@@ -22,7 +22,23 @@ const TracePage = () => {
         try {
             setLoading(true);
             const res = await api.get(`/shipment/${id}/trace`);
-            setTraceData(res.data);
+            // API 返回：{ status: "success", data: { shipment, assigned_route_id, candidates } }
+            const apiData = res.data;
+            const responseData = apiData.data || apiData; // 兼容不同版本的 axios 配置
+
+            // 转换为 TracePage 期望的格式
+            const formattedData = {
+                shipment_id: responseData.shipment?.shipment_id || parseInt(id),
+                shipment_info: responseData.shipment,
+                routes: (responseData.candidates || []).map(c => ({
+                    route_id: c.route_id,
+                    score: c.matched_cost,
+                    route_info: c
+                })),
+                selected_route_id: responseData.assigned_route_id
+            };
+
+            setTraceData(formattedData);
             message.success('溯源数据加载成功');
         } catch (error) {
             console.error('获取溯源数据失败:', error);
